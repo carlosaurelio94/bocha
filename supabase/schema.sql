@@ -89,6 +89,21 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   );
 $$;
 
+-- ¿El usuario actual comparte alguna empresa con este otro usuario?
+-- SECURITY DEFINER a propósito: lee user_companies salteando su RLS, así la
+-- política de profiles que lo usa no entra en recursión profiles → user_companies.
+CREATE OR REPLACE FUNCTION public.shares_company_with(p_user UUID) RETURNS BOOLEAN
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_companies uc_target
+    JOIN public.user_companies uc_self
+      ON uc_self.company_id = uc_target.company_id
+    WHERE uc_target.user_id = p_user
+      AND uc_self.user_id   = auth.uid()
+  );
+$$;
+
 -- Resolver username → email (callable por anon, usado en el login)
 CREATE OR REPLACE FUNCTION public.get_email_by_username(p_username TEXT) RETURNS TEXT
 LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
@@ -424,7 +439,11 @@ CREATE POLICY companies_update ON companies FOR UPDATE TO authenticated USING (p
 DROP POLICY IF EXISTS profiles_select     ON profiles;
 DROP POLICY IF EXISTS profiles_update_own ON profiles;
 DROP POLICY IF EXISTS profiles_insert     ON profiles;
-CREATE POLICY profiles_select     ON profiles FOR SELECT TO authenticated USING (true);
+-- Un usuario ve su propio perfil y el de quienes comparten empresa con él.
+-- Antes era USING (true): cualquier autenticado leía los perfiles (nombre, username,
+-- email) de TODOS los tenants, y /admin los renderizaba en pantalla.
+CREATE POLICY profiles_select     ON profiles FOR SELECT TO authenticated
+  USING (id = auth.uid() OR public.shares_company_with(id));
 CREATE POLICY profiles_update_own ON profiles FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
 CREATE POLICY profiles_insert     ON profiles FOR INSERT TO authenticated WITH CHECK (id = auth.uid());
 

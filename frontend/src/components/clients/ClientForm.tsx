@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { Modal }  from '@/components/ui/Modal';
 import { Input }  from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { useCreateClient, useUpdateClient } from '@/hooks/useClients';
 import type { Client } from '@/types';
 
@@ -24,9 +25,11 @@ interface ClientFormProps {
   open:    boolean;
   onClose: () => void;
   client?: Client | null;
+  /** Se llama con el cliente guardado (p. ej. para seleccionarlo en otro form). */
+  onSaved?: (client: Client) => void;
 }
 
-export function ClientForm({ open, onClose, client }: ClientFormProps) {
+export function ClientForm({ open, onClose, client, onSaved }: ClientFormProps) {
   const isEditing      = !!client;
   const createMutation = useCreateClient();
   const updateMutation = useUpdateClient();
@@ -43,48 +46,40 @@ export function ClientForm({ open, onClose, client }: ClientFormProps) {
     } else {
       reset({ name: '', address: '', rif: '', phone: '', client_status: 'prospect' });
     }
-  }, [client, reset]);
+  }, [client, reset, open]);
 
   const onSubmit = async (values: ClientFormValues) => {
     const dto = { ...values, address: values.address || undefined, rif: values.rif || undefined, phone: values.phone || undefined };
-    if (isEditing && client) {
-      await updateMutation.mutateAsync({ id: client.id, dto });
-    } else {
-      await createMutation.mutateAsync(dto);
-    }
+    const saved = isEditing && client
+      ? await updateMutation.mutateAsync({ id: client.id, dto })
+      : await createMutation.mutateAsync(dto);
+    onSaved?.(saved);
     onClose();
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={isEditing ? 'Editar cliente' : 'Nuevo cliente'}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={isEditing ? 'Editar cliente' : 'Nuevo cliente'}
+      description={isEditing ? undefined : 'Solo el nombre es obligatorio; el resto lo podés completar después.'}
+    >
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <Input label="Nombre" required placeholder="Ej: Carlos García" error={errors.name?.message} {...register('name')} />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input label="RIF" placeholder="J-12345678-9" error={errors.rif?.message} {...register('rif')} />
           <Input label="Teléfono" placeholder="+58 412 000 0000" error={errors.phone?.message} {...register('phone')} />
         </div>
 
         <Input label="Dirección" placeholder="Calle, ciudad, estado" error={errors.address?.message} {...register('address')} />
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor="client_status" className="text-sm font-medium text-gray-700 dark:text-slate-300">
-            Estado <span className="text-red-500">*</span>
-          </label>
-          <select
-            id="client_status"
-            className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900
-                       focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500
-                       dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
-            {...register('client_status')}
-          >
-            <option value="prospect">Prospecto</option>
-            <option value="client">Cliente</option>
-          </select>
-          {errors.client_status && <p className="text-xs text-red-500">{errors.client_status.message}</p>}
-        </div>
+        <Select id="client_status" label="Estado" required error={errors.client_status?.message} {...register('client_status')}>
+          <option value="prospect">Prospecto (todavía no compró)</option>
+          <option value="client">Cliente</option>
+        </Select>
 
-        <div className="flex justify-end gap-3 border-t border-gray-100 pt-4 dark:border-slate-700">
+        <div className="flex flex-col-reverse gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:justify-end dark:border-slate-800">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isPending}>Cancelar</Button>
           <Button type="submit" loading={isPending}>{isEditing ? 'Guardar cambios' : 'Crear cliente'}</Button>
         </div>

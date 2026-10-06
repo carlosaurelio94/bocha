@@ -28,7 +28,7 @@ export function DeleteConfirmModal({ open, onClose, client }: DeleteConfirmModal
           <span className="font-semibold text-gray-900 dark:text-slate-100">{client?.name}</span>?
           Esta acción no se puede deshacer.
         </p>
-        <div className="flex justify-end gap-3 border-t border-gray-100 pt-4 dark:border-slate-700">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button
             type="button"
             variant="secondary"
@@ -43,7 +43,7 @@ export function DeleteConfirmModal({ open, onClose, client }: DeleteConfirmModal
             loading={deleteMutation.isPending}
             onClick={handleDelete}
           >
-            Eliminar
+            Sí, eliminar
           </Button>
         </div>
       </div>

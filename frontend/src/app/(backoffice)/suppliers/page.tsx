@@ -2,14 +2,20 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  Building2, Plus, Search, Eye, Upload, List,
-  Loader2, X, ChevronLeft, ChevronRight, Pencil,
+  Building2, Plus, Eye, Upload, List,
+  Loader2, X, Pencil,
   Phone, Mail, Bell, BellOff, Landmark,
   Trash2
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Supplier, SupplierContact, SupplierBankAccount, SupplierWithDetails } from '@/types/suppliers';
 import { useRouter } from 'next/navigation';
+import { Button }      from '@/components/ui/Button';
+import { Card }        from '@/components/ui/Card';
+import { PageHeader }  from '@/components/ui/PageHeader';
+import { SearchInput } from '@/components/ui/SearchInput';
+import { Pagination }  from '@/components/ui/Pagination';
+import { EmptyState }  from '@/components/ui/EmptyState';
 
 const PAGE_SIZE = 10;
 
@@ -318,8 +324,6 @@ export default function SuppliersPage() {
     searchRef.current = setTimeout(() => { void load(page, search); }, 300);
   }, [page, search, load]);
 
-  const totalPages = Math.ceil(total / PAGE_SIZE);
-
   const handleLoadInvoice = (supplier: Supplier) => {
     router.push(`/invoices?supplierId=${supplier.id}&supplierName=${encodeURIComponent(supplier.legal_name)}`);
   };
@@ -330,42 +334,30 @@ export default function SuppliersPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Building2 className="h-7 w-7 text-green-600" />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Proveedores</h1>
-            <p className="text-sm text-gray-500 dark:text-slate-400">{total} proveedores</p>
-          </div>
-        </div>
-        <button
-          onClick={() => { setEditing(null); setShowForm(true); }}
-          className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-        >
-          <Plus className="h-4 w-4" /> Nuevo proveedor
-        </button>
-      </div>
+      <PageHeader
+        title="Proveedores"
+        description={`${total} ${total === 1 ? 'proveedor' : 'proveedores'}`}
+        actions={
+          <Button onClick={() => { setEditing(null); setShowForm(true); }}>
+            <Plus className="h-4 w-4" /> Nuevo proveedor
+          </Button>
+        }
+      />
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <input
-          value={search}
-          onChange={e => { setSearch(e.target.value); setPage(1); }}
-          placeholder="Buscar por razón social..."
-          className="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-green-500"
-        />
-      </div>
+      <SearchInput
+        value={search}
+        onChange={(v) => { setSearch(v); setPage(1); }}
+        placeholder="Buscar por razón social"
+      />
 
       {/* Tabla */}
-      <div className="rounded-xl border border-gray-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+      <Card flush>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 dark:border-slate-700">
-                {['Razón social', 'Nombre de fantasía', 'Categoría', 'CUIT/VAT', 'Acciones'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide">{h}</th>
+              <tr className="border-b border-gray-100 dark:border-slate-800">
+                {['Razón social', 'Nombre de fantasía', 'Categoría', 'CUIT/VAT', ''].map(h => (
+                  <th key={h} className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -373,15 +365,22 @@ export default function SuppliersPage() {
               {loading ? (
                 <tr><td colSpan={5} className="py-12 text-center"><Loader2 className="h-6 w-6 animate-spin text-gray-400 mx-auto" /></td></tr>
               ) : suppliers.length === 0 ? (
-                <tr><td colSpan={5} className="py-12 text-center text-gray-400 text-sm">No hay proveedores</td></tr>
+                <tr><td colSpan={5}>
+                  <EmptyState
+                    icon={Building2}
+                    title={search ? 'Sin resultados' : 'Todavía no cargaste proveedores'}
+                    description={search ? 'Probá con otro nombre.' : 'Cargá a quién le comprás para registrar sus facturas y pagos.'}
+                    action={!search && <Button onClick={() => { setEditing(null); setShowForm(true); }}><Plus className="h-4 w-4" />Agregar proveedor</Button>}
+                  />
+                </td></tr>
               ) : suppliers.map(s => (
-                <tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
+                <tr key={s.id} onClick={() => setDetail(s)} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800/50">
                   <td className="px-4 py-3 font-medium text-gray-900 dark:text-slate-100">{s.legal_name}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-slate-400">{s.fantasy_name ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-slate-400">{s.category ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-slate-400">{s.tax_id ?? '—'}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-1">
                       <button onClick={() => setDetail(s)} title="Ver detalle" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><Eye className="h-4 w-4" /></button>
                       <button onClick={() => { setEditing(s); setShowForm(true); }} title="Editar" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><Pencil className="h-4 w-4" /></button>
                       <button onClick={() => handleLoadInvoice(s)} title="Cargar factura" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><Upload className="h-4 w-4" /></button>
@@ -394,17 +393,8 @@ export default function SuppliersPage() {
           </table>
         </div>
 
-        {/* Paginación */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-gray-200 dark:border-slate-700 px-4 py-3">
-            <p className="text-xs text-gray-500 dark:text-slate-400">Página {page} de {totalPages}</p>
-            <div className="flex gap-1">
-              <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="rounded-lg border border-gray-300 p-1.5 disabled:opacity-40 hover:bg-gray-50 dark:border-slate-600 dark:hover:bg-slate-800"><ChevronLeft className="h-4 w-4" /></button>
-              <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="rounded-lg border border-gray-300 p-1.5 disabled:opacity-40 hover:bg-gray-50 dark:border-slate-600 dark:hover:bg-slate-800"><ChevronRight className="h-4 w-4" /></button>
-            </div>
-          </div>
-        )}
-      </div>
+        <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={setPage} />
+      </Card>
 
       {/* Modales */}
       {showForm && (

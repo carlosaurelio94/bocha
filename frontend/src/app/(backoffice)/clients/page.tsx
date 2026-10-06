@@ -1,169 +1,206 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { Search, Pencil, Trash2, UserPlus } from 'lucide-react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Pencil, Trash2, UserPlus, Users, Phone } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
+import { useDebounce } from '@/hooks/useDebounce';
+import { usePermissions } from '@/hooks/usePermissions';
 import { ClientForm } from '@/components/clients/ClientForm';
 import { DeleteConfirmModal } from '@/components/clients/DeleteConfirmModal';
-import { Badge }  from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
+import { Avatar }      from '@/components/ui/Avatar';
+import { Badge }       from '@/components/ui/Badge';
+import { Button }      from '@/components/ui/Button';
+import { Card }        from '@/components/ui/Card';
+import { PageHeader }  from '@/components/ui/PageHeader';
+import { SearchInput } from '@/components/ui/SearchInput';
+import { FilterTabs }  from '@/components/ui/FilterTabs';
+import { Pagination }  from '@/components/ui/Pagination';
+import { EmptyState }  from '@/components/ui/EmptyState';
+import { ListSkeleton } from '@/components/ui/Skeleton';
 import { formatDate } from '@/lib/utils';
 import type { Client } from '@/types';
 
 const PAGE_SIZE = 15;
 
-function TableSkeleton() {
-  return (
-    <>
-      {Array.from({ length: 5 }).map((_, i) => (
-        <tr key={i} className="animate-pulse">
-          {Array.from({ length: 6 }).map((_, j) => (
-            <td key={j} className="px-6 py-4">
-              <div className="h-4 rounded bg-gray-200 dark:bg-slate-700" />
-            </td>
-          ))}
-        </tr>
-      ))}
-    </>
-  );
-}
+type StatusFilter = '' | 'prospect' | 'client';
+const STATUS_TABS: { value: StatusFilter; label: string }[] = [
+  { value: '',         label: 'Todos'      },
+  { value: 'client',   label: 'Clientes'   },
+  { value: 'prospect', label: 'Prospectos' },
+];
 
-export default function ClientsPage() {
+function ClientsContent() {
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const { hasPermission } = usePermissions();
+
   const [page, setPage]                 = useState(1);
   const [search, setSearch]             = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [formOpen, setFormOpen]         = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
+  // /clients?nuevo=1 (desde el dashboard o Ctrl+K) abre directo el formulario
+  const [formOpen, setFormOpen]         = useState(() => searchParams.get('nuevo') === '1');
   const [deleteOpen, setDeleteOpen]     = useState(false);
   const [selected, setSelected]         = useState<Client | null>(null);
+  const debouncedSearch = useDebounce(search.trim());
 
-  const { data, isLoading, isError } = useClients({
+  const { data, isLoading, isError, isFetching } = useClients({
     page, pageSize: PAGE_SIZE,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
     status: statusFilter || undefined,
   });
 
-  const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 1;
-
-  const router = useRouter();
   const openCreate = useCallback(() => { setSelected(null); setFormOpen(true); }, []);
   const openEdit   = useCallback((c: Client) => { setSelected(c); setFormOpen(true); }, []);
   const openDelete = useCallback((c: Client) => { setSelected(c); setDeleteOpen(true); }, []);
 
+  // Si ya estamos en /clients y llega ?nuevo=1 (Ctrl+K), abrimos el form y limpiamos la URL
+  const wantsNew = searchParams.get('nuevo') === '1';
+  useEffect(() => {
+    if (wantsNew) router.replace('/clients', { scroll: false });
+  }, [wantsNew, router]);
+  const [lastWantsNew, setLastWantsNew] = useState(wantsNew);
+  if (wantsNew !== lastWantsNew) {
+    setLastWantsNew(wantsNew);
+    if (wantsNew) { setSelected(null); setFormOpen(true); }
+  }
+
+  const canCreate = hasPermission('clientes', 'crear');
+  const canEdit   = hasPermission('clientes', 'editar');
+  const canDelete = hasPermission('clientes', 'eliminar');
+  const filtering = !!debouncedSearch || !!statusFilter;
+
+  const rowActions = (client: Client) => (
+    <div className="flex justify-end gap-1">
+      {canEdit && (
+        <button onClick={() => openEdit(client)} title="Editar" aria-label={`Editar ${client.name}`}
+          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-slate-700 dark:hover:text-slate-200">
+          <Pencil className="h-4 w-4" />
+        </button>
+      )}
+      {canDelete && (
+        <button onClick={() => openDelete(client)} title="Eliminar" aria-label={`Eliminar ${client.name}`}
+          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400">
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-6">
-
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Clientes</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
-            {data ? `${data.total} cliente${data.total !== 1 ? 's' : ''} en total` : 'Gestión de clientes y prospectos'}
-          </p>
-        </div>
-        <Button onClick={openCreate}>
-          <UserPlus className="h-4 w-4" />
-          Nuevo cliente
-        </Button>
-      </div>
-
-      {/* Filtros */}
-      <div className="flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-slate-500" />
-          <input
-            type="text"
-            placeholder="Buscar por nombre, RIF o teléfono..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="block w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm
-                       focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500
-                       dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
-          />
-        </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700
-                     focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500
-                     dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
-        >
-          <option value="">Todos los estados</option>
-          <option value="prospect">Prospectos</option>
-          <option value="client">Clientes</option>
-        </select>
-      </div>
-
-      {/* Tabla */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
-            <thead className="bg-gray-50 dark:bg-slate-700/50">
-              <tr>
-                {['Nombre', 'RIF', 'Teléfono', 'Estado', 'Registrado', 'Acciones'].map((h) => (
-                  <th key={h} className={`px-6 py-3 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-slate-400 ${h === 'Acciones' ? 'text-right' : 'text-left'}`}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white dark:divide-slate-700 dark:bg-slate-800">
-
-              {isLoading && <TableSkeleton />}
-
-              {isError && (
-                <tr><td colSpan={6} className="px-6 py-10 text-center text-sm text-red-500">
-                  Error al cargar los clientes. Verificá la conexión con Supabase.
-                </td></tr>
-              )}
-
-              {!isLoading && !isError && data?.data.length === 0 && (
-                <tr><td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-400 dark:text-slate-500">
-                  {search || statusFilter ? 'No se encontraron clientes con ese criterio.' : 'Todavía no hay clientes. ¡Creá el primero!'}
-                </td></tr>
-              )}
-
-              {!isLoading && data?.data.map((client) => (
-                <tr key={client.id}
-                  className="hover:bg-gray-50 transition-colors cursor-pointer dark:hover:bg-slate-700/50"
-                  onClick={() => router.push(`/clients/${client.id}`)}>
-                  <td className="px-6 py-4 font-medium text-gray-900 dark:text-slate-100">{client.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-slate-400">{client.rif ?? '—'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-slate-400">{client.phone ?? '—'}</td>
-                  <td className="px-6 py-4"><Badge variant={client.client_status} /></td>
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-slate-400">{formatDate(client.created_at)}</td>
-                  <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex justify-end gap-2">
-                      <button onClick={() => openEdit(client)}
-                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors dark:hover:bg-slate-700 dark:hover:text-slate-200">
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); openDelete(client); }}
-                        className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors dark:hover:bg-red-900/30 dark:hover:text-red-400">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Paginación */}
-        {data && totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-gray-200 px-6 py-3 dark:border-slate-700">
-            <p className="text-xs text-gray-500 dark:text-slate-400">Página {page} de {totalPages}</p>
-            <div className="flex gap-2">
-              <Button variant="secondary" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Anterior</Button>
-              <Button variant="secondary" size="sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Siguiente</Button>
-            </div>
-          </div>
+      <PageHeader
+        title="Clientes"
+        description={data ? `${data.total} ${data.total === 1 ? 'registro' : 'registros'}${filtering ? ' con este filtro' : ''}` : 'Tus clientes y prospectos'}
+        actions={canCreate && (
+          <Button onClick={openCreate}>
+            <UserPlus className="h-4 w-4" />
+            Nuevo cliente
+          </Button>
         )}
+      />
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <FilterTabs value={statusFilter} onChange={(v) => { setStatusFilter(v); setPage(1); }} options={STATUS_TABS} />
+        <SearchInput
+          value={search}
+          onChange={(v) => { setSearch(v); setPage(1); }}
+          placeholder="Buscar por nombre, RIF o teléfono"
+        />
       </div>
+
+      <Card flush className={isFetching && !isLoading ? 'opacity-70 transition-opacity' : 'transition-opacity'}>
+        {isLoading ? (
+          <ListSkeleton />
+        ) : isError ? (
+          <p className="px-6 py-12 text-center text-sm text-red-500">
+            No pudimos cargar los clientes. Revisá tu conexión y recargá la página.
+          </p>
+        ) : data?.data.length === 0 ? (
+          filtering ? (
+            <EmptyState
+              icon={Users}
+              title="Sin resultados"
+              description="No encontramos clientes con ese criterio. Probá con otra búsqueda."
+              action={<Button variant="secondary" onClick={() => { setSearch(''); setStatusFilter(''); }}>Limpiar filtros</Button>}
+            />
+          ) : (
+            <EmptyState
+              icon={Users}
+              title="Todavía no tenés clientes"
+              description="Cargá tu primer cliente para empezar a armarle presupuestos."
+              action={canCreate && <Button onClick={openCreate}><UserPlus className="h-4 w-4" />Crear el primero</Button>}
+            />
+          )
+        ) : (
+          <>
+            {/* Desktop: tabla */}
+            <table className="hidden min-w-full md:table">
+              <thead>
+                <tr className="border-b border-gray-100 text-left text-xs font-medium text-gray-500 dark:border-slate-800 dark:text-slate-400">
+                  <th className="px-5 py-3">Nombre</th>
+                  <th className="px-5 py-3">RIF</th>
+                  <th className="px-5 py-3">Teléfono</th>
+                  <th className="px-5 py-3">Estado</th>
+                  <th className="px-5 py-3">Alta</th>
+                  <th className="px-5 py-3"><span className="sr-only">Acciones</span></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                {data?.data.map((client) => (
+                  <tr key={client.id}
+                    className="cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-slate-800/60"
+                    onClick={() => router.push(`/clients/${client.id}`)}>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar name={client.name} />
+                        <span className="font-medium text-gray-900 dark:text-slate-100">{client.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3 text-sm text-gray-500 dark:text-slate-400">{client.rif ?? '—'}</td>
+                    <td className="px-5 py-3 text-sm text-gray-500 dark:text-slate-400">{client.phone ?? '—'}</td>
+                    <td className="px-5 py-3"><Badge variant={client.client_status} /></td>
+                    <td className="px-5 py-3 text-sm text-gray-500 dark:text-slate-400">{formatDate(client.created_at)}</td>
+                    <td className="px-5 py-3" onClick={(e) => e.stopPropagation()}>{rowActions(client)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Mobile: lista */}
+            <ul className="divide-y divide-gray-100 md:hidden dark:divide-slate-800">
+              {data?.data.map((client) => (
+                <li key={client.id}>
+                  <Link href={`/clients/${client.id}`} className="flex items-center gap-3 px-4 py-3 active:bg-gray-50 dark:active:bg-slate-800">
+                    <Avatar name={client.name} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-gray-900 dark:text-slate-100">{client.name}</p>
+                      <p className="flex items-center gap-1 truncate text-xs text-gray-500 dark:text-slate-400">
+                        {client.phone ? <><Phone className="h-3 w-3" />{client.phone}</> : (client.rif ?? 'Sin datos de contacto')}
+                      </p>
+                    </div>
+                    <Badge variant={client.client_status} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+
+            <Pagination page={page} pageSize={PAGE_SIZE} total={data?.total ?? 0} onChange={setPage} />
+          </>
+        )}
+      </Card>
 
       <ClientForm open={formOpen} onClose={() => setFormOpen(false)} client={selected} />
       <DeleteConfirmModal open={deleteOpen} onClose={() => setDeleteOpen(false)} client={selected} />
     </div>
+  );
+}
+
+export default function ClientsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ClientsContent />
+    </Suspense>
   );
 }

@@ -42,6 +42,8 @@ retrofitting multi-tenancy onto live production data would have been far worse.
 - **Settings** — reusable informative-text presets for quotes
 - **Dashboard** — monthly metrics, recent activity, CSV export
 - **Dark mode** — toggle persisted in localStorage, no flash on reload
+- **Quick search** — `Ctrl/Cmd + K` jumps to any section, creates a client or quote, or finds a client by name
+- **Responsive** — mobile drawer navigation, card lists and bottom-sheet dialogs on small screens
 - **Authentication** — Supabase Auth, routes protected by middleware
 - **Multi-tenancy** — each company sees only its own data. Strict RLS.
 - **Self-service onboarding** — anyone can create their company at `/register`

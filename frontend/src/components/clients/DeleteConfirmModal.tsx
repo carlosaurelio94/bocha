@@ -16,8 +16,12 @@ export function DeleteConfirmModal({ open, onClose, client }: DeleteConfirmModal
 
   const handleDelete = async () => {
     if (!client) return;
-    await deleteMutation.mutateAsync(client.id);
-    onClose();
+    try {
+      await deleteMutation.mutateAsync(client.id);
+      onClose();
+    } catch {
+      // El hook ya mostró el toast de error.
+    }
   };
 
   return (

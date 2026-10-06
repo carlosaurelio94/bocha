@@ -50,11 +50,15 @@ export function ClientForm({ open, onClose, client, onSaved }: ClientFormProps) 
 
   const onSubmit = async (values: ClientFormValues) => {
     const dto = { ...values, address: values.address || undefined, rif: values.rif || undefined, phone: values.phone || undefined };
-    const saved = isEditing && client
-      ? await updateMutation.mutateAsync({ id: client.id, dto })
-      : await createMutation.mutateAsync(dto);
-    onSaved?.(saved);
-    onClose();
+    try {
+      const saved = isEditing && client
+        ? await updateMutation.mutateAsync({ id: client.id, dto })
+        : await createMutation.mutateAsync(dto);
+      onSaved?.(saved);
+      onClose();
+    } catch {
+      // El hook ya mostró el toast de error; dejamos el formulario abierto.
+    }
   };
 
   return (

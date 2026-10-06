@@ -48,13 +48,17 @@ function InfoForm({
   });
 
   const onSubmit = async (values: InfoFormValues) => {
-    if (isEditing && preset) {
-      await updateMut.mutateAsync({ id: preset.id, dto: values });
-    } else {
-      await createMut.mutateAsync(values);
+    try {
+      if (isEditing && preset) {
+        await updateMut.mutateAsync({ id: preset.id, dto: values });
+      } else {
+        await createMut.mutateAsync(values);
+      }
+      reset();
+      onClose();
+    } catch {
+      // El hook ya mostró el toast de error; dejamos el formulario abierto.
     }
-    reset();
-    onClose();
   };
 
   return (
@@ -116,8 +120,12 @@ function DeletePresetModal({
 
   const handleDelete = async () => {
     if (!preset) return;
-    await deleteMut.mutateAsync(preset.id);
-    onClose();
+    try {
+      await deleteMut.mutateAsync(preset.id);
+      onClose();
+    } catch {
+      // El hook ya mostró el toast de error.
+    }
   };
 
   return (

@@ -33,8 +33,7 @@ public class QuoteInformationUseCase {
     }
 
     public QuoteInformationDTO update(UUID id, CreateQuoteInformationRequest req, String deviceId) {
-        QuoteInformation existing = repository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Preset no encontrado: " + id));
+        QuoteInformation existing = findActive(id);
         QuoteInformation updated = new QuoteInformation(
                 existing.id(),
                 req.name() != null ? req.name() : existing.name(),
@@ -47,8 +46,14 @@ public class QuoteInformationUseCase {
     }
 
     public void delete(UUID id, String deviceId) {
-        repository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Preset no encontrado: " + id));
+        findActive(id);
         repository.softDelete(id, deviceId);
+    }
+
+    /** Un preset con soft-delete se trata como inexistente (evita "resucitarlo" al editar). */
+    private QuoteInformation findActive(UUID id) {
+        return repository.findById(id)
+                .filter(i -> !i.deleted())
+                .orElseThrow(() -> new NoSuchElementException("Preset no encontrado: " + id));
     }
 }

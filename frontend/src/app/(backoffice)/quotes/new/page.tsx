@@ -17,30 +17,7 @@ import { Modal }  from '@/components/ui/Modal';
 import { Card }   from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { cn, formatCurrency } from '@/lib/utils';
-
-// ─── Parser de texto libre ────────────────────────────────────────────────────
-// Formato: "cantidad nombre_del_producto precio"
-// Ejemplo: "3 pandanus 2.5" → { quantity: 3, product: "pandanus", unit_price: 2.5 }
-function parseItemsText(text: string): { quantity: number; product: string; unit_price: number; total_price: number }[] {
-  return text
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line.length > 0)
-    .flatMap(line => {
-      const tokens = line.split(/\s+/);
-      if (tokens.length < 3) return [];
-
-      const quantity  = parseFloat(tokens[0]);
-      const unitPrice = parseFloat(tokens[tokens.length - 1]);
-
-      if (isNaN(quantity) || isNaN(unitPrice)) return [];
-
-      const product = tokens.slice(1, -1).join(' ');
-      if (!product) return [];
-
-      return [{ quantity, product, unit_price: unitPrice, total_price: quantity * unitPrice }];
-    });
-}
+import { parseItemsText, type ParsedItem } from '@/lib/parseItems';
 
 // ─── Modal de importación ─────────────────────────────────────────────────────
 function ImportModal({
@@ -50,7 +27,7 @@ function ImportModal({
 }: {
   open:     boolean;
   onClose:  () => void;
-  onImport: (items: { quantity: number; product: string; unit_price: number; total_price: number }[]) => void;
+  onImport: (items: ParsedItem[]) => void;
 }) {
   const [text, setText]     = useState('');
   const [preview, setPreview] = useState<ReturnType<typeof parseItemsText>>([]);
@@ -211,7 +188,7 @@ function NewQuoteForm() {
     }
   }, [pendingClientId, clientsData, setValue]);
 
-  const handleImport = (items: { quantity: number; product: string; unit_price: number; total_price: number }[]) => {
+  const handleImport = (items: ParsedItem[]) => {
     // Si solo hay una fila vacía, la reemplazamos; si no, sumamos al final.
     const onlyEmpty = fields.length === 1 && !watchedItems?.[0]?.product;
     if (onlyEmpty) replace(items); else append(items);
@@ -238,13 +215,17 @@ function NewQuoteForm() {
   };
 
   const onSubmit = async (values: QuoteFormValues) => {
-    const created = await createMutation.mutateAsync({
-      ...values,
-      information_id: values.information_id || undefined,
-      total_amount: grandTotal,
-      item_count:   values.items.length,
-    });
-    router.push(created?.id ? `/quotes/${created.id}` : '/quotes');
+    try {
+      const created = await createMutation.mutateAsync({
+        ...values,
+        information_id: values.information_id || undefined,
+        total_amount: grandTotal,
+        item_count:   values.items.length,
+      });
+      router.push(created?.id ? `/quotes/${created.id}` : '/quotes');
+    } catch {
+      // El hook ya mostró el toast de error; no perdemos lo cargado.
+    }
   };
 
   const hasClients = (clientsData?.data.length ?? 0) > 0;

@@ -26,10 +26,7 @@ public class QuoteUseCase {
     }
 
     public QuoteDTO getById(UUID id) {
-        return quoteRepository.findById(id)
-                .filter(q -> !q.deleted())
-                .map(quoteMapper::toDto)
-                .orElseThrow(() -> new NoSuchElementException("Presupuesto no encontrado: " + id));
+        return quoteMapper.toDto(findActive(id));
     }
 
     public int nextQuoteNumber() {
@@ -64,14 +61,19 @@ public class QuoteUseCase {
     }
 
     public void updateStatus(UUID id, QuoteStatus status, String deviceId) {
-        quoteRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Presupuesto no encontrado: " + id));
+        findActive(id);
         quoteRepository.updateStatus(id, status, deviceId);
     }
 
     public void delete(UUID id, String deviceId) {
-        quoteRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Presupuesto no encontrado: " + id));
+        findActive(id);
         quoteRepository.softDelete(id, deviceId);
+    }
+
+    /** Un presupuesto con soft-delete se trata como inexistente. */
+    private Quote findActive(UUID id) {
+        return quoteRepository.findById(id)
+                .filter(q -> !q.deleted())
+                .orElseThrow(() -> new NoSuchElementException("Presupuesto no encontrado: " + id));
     }
 }

@@ -81,6 +81,33 @@ export ALLOWED_ORIGINS=http://localhost:3000
 mvn spring-boot:run
 ```
 
+## Testing
+
+### Frontend — Vitest + Testing Library
+
+```bash
+cd frontend
+npm test            # single run (what CI runs)
+npm run test:watch  # watch mode
+```
+
+- `src/lib/*.test.ts` — data access (Supabase query building, soft delete, errors) and pure helpers
+- `src/components/**/*.test.tsx` — UI kit, command palette (Ctrl+K), client form
+- `src/app/(backoffice)/**/*.test.tsx` — full screens: dashboard, clients, quotes list, new quote, quote detail
+- Supabase is replaced by a recording double (`src/test/supabaseMock.ts`), so tests need no network or database.
+
+### Backend — JUnit 5 + Mockito + MockMvc
+
+```bash
+cd backend
+mvn test
+```
+
+- Domain and DTO validation rules
+- MapStruct mappers (generated implementations)
+- Use cases with mocked repositories
+- Controllers with `@WebMvcTest`, including error responses (400 / 404 / 500 as Problem Details)
+
 ## Environment variables
 
 ### Frontend (`frontend/.env.local`)

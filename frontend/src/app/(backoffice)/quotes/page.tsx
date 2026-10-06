@@ -47,8 +47,12 @@ function DeleteModal({ quote, onClose }: { quote: Quote | null; onClose: () => v
   const deleteMutation = useDeleteQuote();
   const handleDelete = async () => {
     if (!quote) return;
-    await deleteMutation.mutateAsync(quote.id);
-    onClose();
+    try {
+      await deleteMutation.mutateAsync(quote.id);
+      onClose();
+    } catch {
+      // El hook ya mostró el toast de error.
+    }
   };
   return (
     <Modal open={!!quote} onClose={onClose} title="Eliminar presupuesto" size="sm">

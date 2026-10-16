@@ -94,4 +94,16 @@ describe('QuoteDetailPage', () => {
     expect(await screen.findByText('No encontramos este presupuesto')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Volver a presupuestos' })).toHaveAttribute('href', '/quotes');
   });
+
+  it('ofrece editar solo con permiso', async () => {
+    await renderDetail('draft');
+    expect(screen.getByRole('link', { name: /Editar/ })).toHaveAttribute('href', '/quotes/q1/edit');
+  });
+
+  it('sin permiso de edición no muestra "Editar"', async () => {
+    perms.value = permissionsFor('presupuestos:ver');
+    await renderDetail('draft');
+    expect(screen.queryByRole('link', { name: /Editar/ })).toBeNull();
+  });
 });
+

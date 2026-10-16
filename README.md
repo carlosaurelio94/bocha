@@ -114,6 +114,9 @@ SQL files in `supabase/migrations/` must be run in the Supabase SQL Editor (they
 `schema.sql` already includes them for fresh installs.
 
 - `20261016_bootstrap_company_free_plan.sql` — self-service signup always starts on the free plan (security fix).
+- `20261017_plan_limits_and_unique_quote_numbers.sql` — enforces plan limits in the database and makes quote numbers unique per company.
+
+Database tests (schema + migrations against a throwaway Postgres): `PGHOST=... PGUSER=postgres supabase/tests/run.sh`.
 
 See `docs/analisis-ux-qa.md` for the latest UX/QA audit.
 

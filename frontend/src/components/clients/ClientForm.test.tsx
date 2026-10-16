@@ -96,4 +96,17 @@ describe('ClientForm', () => {
     expect(onClose).toHaveBeenCalled();
     expect(sb.mock.queries).toHaveLength(0);
   });
+
+  it('si se llegó al límite del plan lo explica y ofrece ver planes', async () => {
+    sb.mock.respond('clients', { error: { code: 'P0001', message: 'plan_limit:max_clients:25' } });
+    renderWithQuery(<ClientForm open onClose={vi.fn()} />);
+    await userEvent.type(screen.getByLabelText(/Nombre/), 'Pedro');
+    await userEvent.click(screen.getByRole('button', { name: 'Crear cliente' }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    const [message, options] = toast.error.mock.calls[0] as [string, { action?: { label: string } }];
+    expect(message).toMatch(/límite de tu plan \(25 clientes\)/);
+    expect(options.action?.label).toBe('Ver planes');
+  });
 });
+

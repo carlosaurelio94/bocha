@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -125,6 +126,19 @@ class QuoteControllerTest {
         mvc.perform(post("/api/v1/quotes").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.items").exists());
+    }
+
+    @Test
+    @DisplayName("número de presupuesto repetido (índice único) → 409, no 500")
+    void duplicateQuoteNumberIsConflict() throws Exception {
+        when(useCase.create(any(), any())).thenThrow(new DataIntegrityViolationException(
+                "duplicate key value violates unique constraint \"uq_quotes_company_number\""));
+
+        mvc.perform(post("/api/v1/quotes").contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(TestData.createQuoteRequest(UUID.randomUUID()))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("/errors/conflict"))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("uq_quotes"))));
     }
 
     @Test

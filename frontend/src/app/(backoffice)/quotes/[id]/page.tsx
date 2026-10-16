@@ -3,7 +3,7 @@
 import { use } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { FileDown, FileText, Send, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
+import { FileDown, FileText, Send, CheckCircle2, XCircle, RotateCcw, Pencil } from 'lucide-react';
 import { getQuoteById } from '@/lib/quotes';
 import { generateQuotePdf } from '@/lib/generateQuotePdf';
 import { useCompany } from '@/context/CompanyContext';
@@ -119,10 +119,18 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
           </>
         }
         actions={
-          <Button onClick={() => generateQuotePdf(quote, company?.name)}>
-            <FileDown className="h-4 w-4" />
-            Descargar PDF
-          </Button>
+          <>
+            {hasPermission('presupuestos', 'editar') && (
+              <LinkButton variant="secondary" href={`/quotes/${quote.id}/edit`}>
+                <Pencil className="h-4 w-4" />
+                Editar
+              </LinkButton>
+            )}
+            <Button onClick={() => generateQuotePdf(quote, company?.name)}>
+              <FileDown className="h-4 w-4" />
+              Descargar PDF
+            </Button>
+          </>
         }
       />
 

@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { parsePlanLimit } from '@/lib/errors';
 
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -150,6 +151,8 @@ export async function POST(request: Request) {
 
   if (linkError) {
     await admin.auth.admin.deleteUser(userId);
+    const limit = parsePlanLimit(linkError);
+    if (limit) return NextResponse.json({ error: limit.message }, { status: 409 });
     return NextResponse.json({ error: 'Error al asignar empresa/rol' }, { status: 500 });
   }
 

@@ -9,7 +9,7 @@ vi.mock('./supabase', async () => {
   return { supabase: sb.mock.client };
 });
 
-import { getQuotes, createQuote, updateQuoteStatus, deleteQuote, getNextQuoteNumber } from './quotes';
+import { getQuotes, getQuoteById, createQuote, updateQuote, updateQuoteStatus, deleteQuote, getNextQuoteNumber } from './quotes';
 
 beforeEach(() => {
   sb.mock.reset();
@@ -100,6 +100,32 @@ describe('createQuote', () => {
     expect(rollback).toContainEqual(['eq', ['id', 'q1']]);
   });
 
+  it('si el número ya está en uso (23505) reintenta con el siguiente libre', async () => {
+    sb.mock.respond('quotes', { error: { code: '23505', message: 'duplicate key' } }); // insert #7
+    sb.mock.respond('quotes', { data: { quote_number: 9 } });                          // next number → 10
+    sb.mock.respond('quotes', { data: { id: 'q1', quote_number: 10 } });               // insert #10
+
+    const quote = await createQuote(dto);
+
+    expect(quote.quote_number).toBe(10);
+    const inserts = sb.mock.queries.filter((q) => q.table === 'quotes' && q.ops[0]?.[0] === 'insert');
+    expect(inserts.map((q) => (q.ops[0][1][0] as { quote_number: number }).quote_number)).toEqual([7, 10]);
+  });
+
+  it('no reintenta para siempre: después de 3 conflictos propaga el error', async () => {
+    for (let i = 0; i < 4; i++) {
+      sb.mock.respond('quotes', { error: { code: '23505', message: 'duplicate key' } });
+      if (i < 3) sb.mock.respond('quotes', { data: { quote_number: 40 + i } });
+    }
+    await expect(createQuote(dto)).rejects.toMatchObject({ code: '23505' });
+  });
+
+  it('otros errores (p. ej. límite del plan) no se reintentan', async () => {
+    sb.mock.respond('quotes', { error: { code: 'P0001', message: 'plan_limit:max_quotes_per_month:20' } });
+    await expect(createQuote(dto)).rejects.toMatchObject({ code: 'P0001' });
+    expect(sb.mock.queries.filter((q) => q.table === 'quotes')).toHaveLength(1);
+  });
+
   it('no inserta ítems si la lista viene vacía', async () => {
     sb.mock.respond('quotes', { data: { id: 'q1' } });
     await createQuote({ ...dto, items: [] });
@@ -131,5 +157,65 @@ describe('getNextQuoteNumber', () => {
   it('empieza en 1 si no hay presupuestos', async () => {
     sb.mock.respond('quotes', { data: null, error: { code: 'PGRST116' } });
     expect(await getNextQuoteNumber()).toBe(1);
+  });
+});
+
+describe('getQuoteById', () => {
+  it('no devuelve presupuestos borrados ni ítems reemplazados', async () => {
+    sb.mock.respond('quotes', { data: { id: 'q1' } });
+    await getQuoteById('q1');
+    const ops = sb.mock.lastOps('quotes');
+    expect(ops).toContainEqual(['eq', ['deleted', false]]);
+    expect(ops).toContainEqual(['eq', ['items.deleted', false]]);
+  });
+});
+
+describe('updateQuote', () => {
+  const edited = { ...dto, quote_number: 8, items: [{ product: 'Cactus', quantity: 3, unit_price: 5, total_price: 15 }] };
+
+  const updates = (table: string) =>
+    sb.mock.queries.filter((q) => q.table === table && q.ops[0]?.[0] === 'update');
+
+  it('inserta los ítems nuevos, da de baja los viejos y actualiza la cabecera', async () => {
+    sb.mock.respond('quote_items', { data: [{ id: 'old1' }, { id: 'old2' }] }); // ítems actuales
+    sb.mock.respond('quote_items', { data: [{ id: 'new1' }] });                 // insert
+
+    await updateQuote('q1', edited);
+
+    const insert = sb.mock.queries.find((q) => q.table === 'quote_items' && q.ops[0]?.[0] === 'insert')!;
+    expect(insert.ops[0][1][0]).toEqual([expect.objectContaining({ product: 'Cactus', quote_id: 'q1', client_id: 'cl1' })]);
+
+    const [softDelete] = updates('quote_items');
+    expect(softDelete.ops).toContainEqual(['in', ['id', ['old1', 'old2']]]);
+    expect(softDelete.ops[0][1][0]).toMatchObject({ deleted: true });
+
+    const [headerUpdate] = updates('quotes');
+    expect(headerUpdate.ops[0][1][0]).toMatchObject({ quote_number: 8, total_amount: 30, updated_by: 'device_test' });
+    expect(headerUpdate.ops[0][1][0]).not.toHaveProperty('items');
+    expect(headerUpdate.ops).toContainEqual(['eq', ['id', 'q1']]);
+  });
+
+  it('si falla el insert de ítems no toca nada más', async () => {
+    sb.mock.respond('quote_items', { data: [{ id: 'old1' }] });
+    sb.mock.respond('quote_items', { error: new Error('items') });
+    await expect(updateQuote('q1', edited)).rejects.toThrow('items');
+    expect(updates('quote_items')).toHaveLength(0);
+    expect(updates('quotes')).toHaveLength(0);
+  });
+
+  it('si falla la cabecera (p. ej. número repetido) revierte los ítems', async () => {
+    sb.mock.respond('quote_items', { data: [{ id: 'old1' }] });
+    sb.mock.respond('quote_items', { data: [{ id: 'new1' }] });
+    sb.mock.respond('quote_items', {});                                   // baja de viejos OK
+    sb.mock.respond('quotes', { error: { code: '23505', message: 'dup' } });
+
+    await expect(updateQuote('q1', edited)).rejects.toMatchObject({ code: '23505' });
+
+    const itemUpdates = updates('quote_items');
+    // 1) baja de viejos, 2) baja de nuevos (deshacer), 3) restaurar viejos
+    expect(itemUpdates).toHaveLength(3);
+    expect(itemUpdates[1].ops).toContainEqual(['in', ['id', ['new1']]]);
+    expect(itemUpdates[2].ops[0][1][0]).toMatchObject({ deleted: false });
+    expect(itemUpdates[2].ops).toContainEqual(['in', ['id', ['old1']]]);
   });
 });

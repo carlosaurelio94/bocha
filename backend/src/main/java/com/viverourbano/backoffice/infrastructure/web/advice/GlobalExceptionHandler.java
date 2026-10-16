@@ -1,6 +1,7 @@
 package com.viverourbano.backoffice.infrastructure.web.advice;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MissingRequestHeaderException;
@@ -88,6 +89,19 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST, "La solicitud está mal formada");
         problem.setType(URI.create("/errors/bad-request"));
+        return problem;
+    }
+
+    /**
+     * 409 — violación de una restricción de la base (p. ej. número de presupuesto
+     * repetido por el índice único company_id + quote_number). No es un error
+     * del servidor: el cliente puede reintentar con otro valor.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleConflict(DataIntegrityViolationException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, "El dato ya existe o entra en conflicto con otro registro");
+        problem.setType(URI.create("/errors/conflict"));
         return problem;
     }
 

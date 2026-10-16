@@ -181,5 +181,19 @@ describe('NewQuotePage', () => {
     expect(nav.router.push).toHaveBeenCalledWith('/quotes');
     confirmSpy.mockRestore();
   });
+
+  it('no acepta cantidades con decimales (la base guarda enteros)', async () => {
+    setup();
+    await screen.findByRole('option', { name: 'Ana Torres' });
+    await userEvent.selectOptions(screen.getAllByRole('combobox')[0], 'c1');
+    await userEvent.type(productInputs()[0], 'Tierra');
+    const qty = screen.getByLabelText('Cantidad');
+    await userEvent.clear(qty);
+    await userEvent.type(qty, '1.5');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar presupuesto' }));
+
+    expect(await screen.findByText('Solo números enteros')).toBeInTheDocument();
+    expect(sb.mock.queries.some((q) => q.ops[0]?.[0] === 'insert')).toBe(false);
+  });
 });
 

@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { notifyError } from '@/lib/notifyError';
 import { getClients, createClient, updateClient, deleteClient } from '@/lib/clients';
 import type { CreateClientDTO, UpdateClientDTO } from '@/types';
 
@@ -34,7 +35,7 @@ export function useCreateClient() {
       qc.invalidateQueries({ queryKey: clientKeys.all });
       toast.success('Cliente creado');
     },
-    onError: () => toast.error('No se pudo crear el cliente'),
+    onError: (error) => notifyError(error, 'No se pudo crear el cliente'),
   });
 }
 
@@ -46,7 +47,7 @@ export function useUpdateClient() {
       qc.invalidateQueries({ queryKey: clientKeys.all });
       toast.success('Cliente actualizado');
     },
-    onError: () => toast.error('No se pudo actualizar el cliente'),
+    onError: (error) => notifyError(error, 'No se pudo actualizar el cliente'),
   });
 }
 
@@ -58,6 +59,6 @@ export function useDeleteClient() {
       qc.invalidateQueries({ queryKey: clientKeys.all });
       toast.success('Cliente eliminado');
     },
-    onError: () => toast.error('No se pudo eliminar el cliente'),
+    onError: (error) => notifyError(error, 'No se pudo eliminar el cliente'),
   });
 }

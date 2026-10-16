@@ -1,0 +1,35 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Tests de base de datos: aplica schema.sql + migraciones en un Postgres
+# descartable y corre las aserciones de supabase/tests (límites del plan,
+# números únicos, alta en plan free). Usa stubs mínimos de Supabase (auth.uid).
+# ─────────────────────────────────────────────────────────────────────────────
+name: DB tests
+
+on:
+  push:
+    branches: [dev, test, main]
+    paths: ['supabase/**', '.github/workflows/db-tests.yml']
+  pull_request:
+    paths: ['supabase/**', '.github/workflows/db-tests.yml']
+
+jobs:
+  sql:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Schema + migraciones + tests
+        run: supabase/tests/run.sh

@@ -58,7 +58,15 @@ Severidad: 🔴 crítica · 🟠 alta · 🟡 media · ⚪ baja. Estado: ✅ cor
 - **Base de datos**: `supabase/tests/run.sh` aplica `schema.sql` + migraciones en un Postgres descartable y verifica límites del plan, números únicos y alta en plan free. Corre en CI (`.github/workflows/db-tests.yml`).
 - **Total**: frontend 259 tests, backend 81, base de datos 1 suite de aserciones SQL.
 
-## 4. Migraciones a aplicar en Supabase (SQL Editor, en orden)
+## 4. Migraciones de base de datos
+
+Aplicadas en producción (Supabase) el 16/10/2026:
 
 1. `supabase/migrations/20261016_bootstrap_company_free_plan.sql`
-2. `supabase/migrations/20261017_plan_limits_and_unique_quote_numbers.sql`: si hay números de presupuesto repetidos, avisa y no crea el índice (hay que corregirlos y volver a correrla)
+2. `supabase/migrations/20261017_plan_limits_and_unique_quote_numbers.sql` (sin números duplicados previos; índice creado)
+3. `supabase/migrations/20261018_revoke_anon_internal_rpcs.sql` (aviso del Security Advisor: `bootstrap_company` y `company_limit` ya no se pueden llamar sin sesión)
+
+Avisos del Security Advisor que quedan, y por qué:
+- `get_email_by_username`, `get_company_branding`, `is_company_slug_available`, `is_username_available` llamables sin sesión: son intencionales (login por usuario, branding del login y validación del registro).
+- **Leaked password protection** desactivado: se activa desde el dashboard (Authentication → Policies). Recomendado.
+

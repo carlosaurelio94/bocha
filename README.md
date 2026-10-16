@@ -110,11 +110,12 @@ mvn test
 
 ### Pending database migrations
 
-SQL files in `supabase/migrations/` must be run in the Supabase SQL Editor (they are idempotent).
+SQL files in `supabase/migrations/` (all idempotent). Already applied to production as of 2026-10-16.
 `schema.sql` already includes them for fresh installs.
 
 - `20261016_bootstrap_company_free_plan.sql` — self-service signup always starts on the free plan (security fix).
 - `20261017_plan_limits_and_unique_quote_numbers.sql` — enforces plan limits in the database and makes quote numbers unique per company.
+- `20261018_revoke_anon_internal_rpcs.sql` — `bootstrap_company` and `company_limit` are no longer callable without a session.
 
 Database tests (schema + migrations against a throwaway Postgres): `PGHOST=... PGUSER=postgres supabase/tests/run.sh`.
 

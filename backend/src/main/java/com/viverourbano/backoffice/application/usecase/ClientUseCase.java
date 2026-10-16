@@ -43,10 +43,7 @@ public class ClientUseCase {
      * Busca un cliente por ID. Lanza excepción si no existe o está eliminado.
      */
     public ClientDTO getById(UUID id) {
-        return clientRepository.findById(id)
-                .filter(c -> !c.deleted())
-                .map(clientMapper::toDto)
-                .orElseThrow(() -> new NoSuchElementException("Cliente no encontrado: " + id));
+        return clientMapper.toDto(findActive(id));
     }
 
     /**
@@ -66,8 +63,7 @@ public class ClientUseCase {
 
     /** Actualiza los campos presentes en el request (PATCH semántico). */
     public ClientDTO update(UUID id, UpdateClientRequest request, String deviceId) {
-        Client existing = clientRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Cliente no encontrado: " + id));
+        Client existing = findActive(id);
 
         Client updated = new Client(
                 existing.id(),
@@ -87,8 +83,17 @@ public class ClientUseCase {
      * Soft-delete: marca el cliente como eliminado sin borrarlo de la base de datos.
      */
     public void delete(UUID id, String deviceId) {
-        clientRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Cliente no encontrado: " + id));
+        findActive(id);
         clientRepository.deleteById(id, deviceId);
+    }
+
+    /**
+     * Un cliente con soft-delete se trata como inexistente: así no se puede
+     * editar (y "resucitar" con deleted=false) ni volver a borrar.
+     */
+    private Client findActive(UUID id) {
+        return clientRepository.findById(id)
+                .filter(c -> !c.deleted())
+                .orElseThrow(() -> new NoSuchElementException("Cliente no encontrado: " + id));
     }
 }

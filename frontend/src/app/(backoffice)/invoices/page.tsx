@@ -3,10 +3,17 @@
 import { useEffect, useState, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
-  Receipt, Plus, Search, Info, FileStack, X, Loader2,
-  CheckCircle, XCircle, ChevronLeft, ChevronRight
+  Receipt, Plus, Info, FileStack, X, Loader2,
+  CheckCircle, XCircle
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { friendlyError } from '@/lib/errors';
+import { Button }      from '@/components/ui/Button';
+import { Card }        from '@/components/ui/Card';
+import { PageHeader }  from '@/components/ui/PageHeader';
+import { SearchInput } from '@/components/ui/SearchInput';
+import { Pagination }  from '@/components/ui/Pagination';
+import { EmptyState }  from '@/components/ui/EmptyState';
 import type {
   Invoice, InvoiceStatus, InvoiceStatusHistory,
   Supplier, InvoiceType, PaymentMethod, Currency,
@@ -313,7 +320,7 @@ function InvoiceFormModal({ statuses: _statuses, preSupplier, onClose, onSaved }
       created_by: user?.id ?? null,
     }).select().single();
 
-    if (err || !inv) { setError(err?.message ?? 'Error al guardar'); setSaving(false); return; }
+    if (err || !inv) { setError(friendlyError(err, 'No se pudo guardar el comprobante. Probá de nuevo.')); setSaving(false); return; }
 
     // Crear cuotas si hay más de 1
     const numInstallments = parseInt(form.installments) || 1;
@@ -467,7 +474,10 @@ function InvoicesContent() {
   const [page,      setPage]      = useState(1);
   const [search,    setSearch]    = useState('');
   const [loading,   setLoading]   = useState(true);
-  const [showForm,  setShowForm]  = useState(!!preSupplier && !!searchParams.get('supplierName'));
+  // Abre el formulario si viene de "Cargar factura" (proveedor o dashboard)
+  const [showForm,  setShowForm]  = useState(
+    (!!preSupplier && !!searchParams.get('supplierName')) || searchParams.get('nuevo') === '1'
+  );
   const [detail,    setDetail]    = useState<Invoice | null>(null);
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const supplierFilter = searchParams.get('supplierId');
@@ -498,98 +508,124 @@ function InvoicesContent() {
     searchRef.current = setTimeout(() => { void load(page, search); }, 300);
   }, [page, search, load]);
 
-  const totalPages = Math.ceil(total / PAGE_SIZE);
-
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <Receipt className="h-7 w-7 text-green-600" />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Facturas</h1>
-            <p className="text-sm text-gray-500 dark:text-slate-400">
-              {total} comprobante{total !== 1 ? 's' : ''}
-              {supplierFilter && <span> · filtrado por proveedor <button onClick={() => router.push('/invoices')} className="underline hover:no-underline">×limpiar</button></span>}
-            </p>
-          </div>
-        </div>
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
-          <Plus className="h-4 w-4" /> Cargar comprobante
-        </button>
-      </div>
+      <PageHeader
+        title="Facturas"
+        description={
+          <>
+            {total} {total === 1 ? 'comprobante' : 'comprobantes'}
+            {supplierFilter && (
+              <> · filtrado por proveedor{' '}
+                <button onClick={() => router.push('/invoices')} className="font-medium text-green-700 hover:underline dark:text-green-400">
+                  quitar filtro
+                </button>
+              </>
+            )}
+          </>
+        }
+        actions={
+          <Button onClick={() => setShowForm(true)}>
+            <Plus className="h-4 w-4" /> Cargar comprobante
+          </Button>
+        }
+      />
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-          placeholder="Buscar por número de comprobante..."
-          className="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-green-500"
-        />
-      </div>
+      <SearchInput
+        value={search}
+        onChange={(v) => { setSearch(v); setPage(1); }}
+        placeholder="Buscar por número de comprobante"
+      />
 
       {/* Tabla */}
-      <div className="rounded-xl border border-gray-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-slate-700">
-                {['Razón social', 'Nombre fantasía', 'Nro. Comprobante', 'Monto', 'Estado', 'Vencimiento', 'Fecha a pagar', 'Fecha de pago', 'Acciones'].map(h => (
-                  <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-              {loading ? (
-                <tr><td colSpan={9} className="py-12 text-center"><Loader2 className="h-6 w-6 animate-spin text-gray-400 mx-auto" /></td></tr>
-              ) : invoices.length === 0 ? (
-                <tr><td colSpan={9} className="py-12 text-center text-gray-400 text-sm">No hay comprobantes</td></tr>
-              ) : invoices.map(inv => {
-                const s = Array.isArray(inv.supplier) ? inv.supplier[0] : inv.supplier;
-                const st = statuses.find(x => x.id === inv.status_id);
-                const isPending = inv.status_id === 4 || inv.status_id === 2;
-                return (
-                  <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
-                    <td className="px-3 py-3 font-medium text-gray-900 dark:text-slate-100 whitespace-nowrap">{(s as Supplier)?.legal_name ?? '—'}</td>
-                    <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">{(s as Supplier)?.fantasy_name ?? '—'}</td>
-                    <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">
-                      {inv.invoice_number} {inv.installments > 1 ? `(1/${inv.installments})` : '(1/1)'}
-                    </td>
-                    <td className="px-3 py-3 text-gray-800 dark:text-slate-200 whitespace-nowrap font-medium">{fmt(inv.total_amount, inv.currency)}</td>
-                    <td className="px-3 py-3">{st ? <StatusBadge statusId={st.id} statusName={st.name} /> : '—'}</td>
-                    <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">{fmtDate(inv.due_date)}</td>
-                    <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">{fmtDate(inv.scheduled_payment_date)}</td>
-                    <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">{fmtDate(inv.payment_date)}</td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setDetail(inv)} title="Información" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><Info className="h-4 w-4" /></button>
-                        <button title="Comprobantes adjuntos" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><FileStack className="h-4 w-4" /></button>
-                        {isPending && (
-                          <>
-                            <button onClick={() => setDetail(inv)} title="Rechazar" className="rounded p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"><XCircle className="h-4 w-4" /></button>
-                            <button onClick={() => setDetail(inv)} title="Aprobar" className="rounded p-1.5 text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20"><CheckCircle className="h-4 w-4" /></button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+      <Card flush>
+        {/* Vacío: fuera de la tabla para que en mobile no quede cortado por el scroll horizontal */}
+        {!loading && invoices.length === 0 ? (
+          <EmptyState
+            icon={Receipt}
+            title={search ? 'Sin resultados' : 'No hay comprobantes cargados'}
+            description={search ? 'Probá con otro número.' : 'Cargá la primera factura de un proveedor para seguir sus vencimientos y pagos.'}
+            action={!search && <Button onClick={() => setShowForm(true)}><Plus className="h-4 w-4" />Cargar comprobante</Button>}
+          />
+        ) : (
+          <>
+          {/* Mobile: tarjetas (la tabla tiene 9 columnas) */}
+          <ul className="divide-y divide-gray-100 md:hidden dark:divide-slate-800">
+            {loading ? (
+              <li className="py-12 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-gray-400" /></li>
+            ) : invoices.map(inv => {
+              const s  = (Array.isArray(inv.supplier) ? inv.supplier[0] : inv.supplier) as Supplier | undefined;
+              const st = statuses.find(x => x.id === inv.status_id);
+              return (
+                <li key={inv.id}>
+                  <button onClick={() => setDetail(inv)} className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left active:bg-gray-50 dark:active:bg-slate-800">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-gray-900 dark:text-slate-100">{s?.fantasy_name ?? s?.legal_name ?? '—'}</span>
+                      <span className="block text-xs text-gray-500 dark:text-slate-400">
+                        N° {inv.invoice_number}{inv.due_date ? ` · vence ${fmtDate(inv.due_date)}` : ''}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      <span className="text-sm font-semibold text-gray-900 dark:text-slate-100">{fmt(inv.total_amount, inv.currency)}</span>
+                      {st && <StatusBadge statusId={st.id} statusName={st.name} />}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
 
-        {/* Paginación */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-gray-200 dark:border-slate-700 px-4 py-3">
-            <p className="text-xs text-gray-500 dark:text-slate-400">Página {page} de {totalPages}</p>
-            <div className="flex gap-1">
-              <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="rounded-lg border border-gray-300 p-1.5 disabled:opacity-40 hover:bg-gray-50 dark:border-slate-600 dark:hover:bg-slate-800"><ChevronLeft className="h-4 w-4" /></button>
-              <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="rounded-lg border border-gray-300 p-1.5 disabled:opacity-40 hover:bg-gray-50 dark:border-slate-600 dark:hover:bg-slate-800"><ChevronRight className="h-4 w-4" /></button>
-            </div>
+          {/* Desktop: tabla */}
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-slate-800">
+                  {['Razón social', 'Nombre fantasía', 'Nro. Comprobante', 'Monto', 'Estado', 'Vencimiento', 'Fecha a pagar', 'Fecha de pago', ''].map(h => (
+                    <th key={h} className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                {loading ? (
+                  <tr><td colSpan={9} className="py-12 text-center"><Loader2 className="h-6 w-6 animate-spin text-gray-400 mx-auto" /></td></tr>
+                ) : invoices.map(inv => {
+                  const s = Array.isArray(inv.supplier) ? inv.supplier[0] : inv.supplier;
+                  const st = statuses.find(x => x.id === inv.status_id);
+                  const isPending = inv.status_id === 4 || inv.status_id === 2;
+                  return (
+                    <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
+                      <td className="px-3 py-3 font-medium text-gray-900 dark:text-slate-100 whitespace-nowrap">{(s as Supplier)?.legal_name ?? '—'}</td>
+                      <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">{(s as Supplier)?.fantasy_name ?? '—'}</td>
+                      <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">
+                        {inv.invoice_number} {inv.installments > 1 ? `(1/${inv.installments})` : '(1/1)'}
+                      </td>
+                      <td className="px-3 py-3 text-gray-800 dark:text-slate-200 whitespace-nowrap font-medium">{fmt(inv.total_amount, inv.currency)}</td>
+                      <td className="px-3 py-3">{st ? <StatusBadge statusId={st.id} statusName={st.name} /> : '—'}</td>
+                      <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">{fmtDate(inv.due_date)}</td>
+                      <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">{fmtDate(inv.scheduled_payment_date)}</td>
+                      <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">{fmtDate(inv.payment_date)}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setDetail(inv)} title="Ver detalle" aria-label={`Ver detalle del comprobante ${inv.invoice_number}`} className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><Info className="h-4 w-4" /></button>
+                          {isPending && (
+                            <>
+                              <button onClick={() => setDetail(inv)} title="Revisar para rechazar" aria-label={`Rechazar comprobante ${inv.invoice_number}`} className="rounded p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"><XCircle className="h-4 w-4" /></button>
+                              <button onClick={() => setDetail(inv)} title="Revisar para aprobar" aria-label={`Aprobar comprobante ${inv.invoice_number}`} className="rounded p-1.5 text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20"><CheckCircle className="h-4 w-4" /></button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
+          </>
         )}
-      </div>
+
+        <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={setPage} />
+      </Card>
 
       {/* Modales */}
       {showForm && (

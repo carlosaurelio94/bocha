@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # CI del Frontend (Next.js)
 # Se ejecuta en cada push a dev, test y main (prod).
-# Verifica que el build compile sin errores y pasa el linter.
+# Verifica lint, tipos, tests y que el build compile sin errores.
 # ─────────────────────────────────────────────────────────────────────────────
 name: Frontend CI
 
@@ -17,7 +17,7 @@ on:
 
 jobs:
   build:
-    name: Build & Lint
+    name: Lint, Test & Build
     runs-on: ubuntu-latest
 
     defaults:
@@ -43,6 +43,9 @@ jobs:
 
       - name: Type check (TypeScript)
         run: npx tsc --noEmit
+
+      - name: Tests (Vitest)
+        run: npm test
 
       - name: Build
         # Las variables de entorno de Supabase son necesarias para el build

@@ -42,6 +42,8 @@ retrofitting multi-tenancy onto live production data would have been far worse.
 - **Settings** — reusable informative-text presets for quotes
 - **Dashboard** — monthly metrics, recent activity, CSV export
 - **Dark mode** — toggle persisted in localStorage, no flash on reload
+- **Quick search** — `Ctrl/Cmd + K` jumps to any section, creates a client or quote, or finds a client by name
+- **Responsive** — mobile drawer navigation, card lists and bottom-sheet dialogs on small screens
 - **Authentication** — Supabase Auth, routes protected by middleware
 - **Multi-tenancy** — each company sees only its own data. Strict RLS.
 - **Self-service onboarding** — anyone can create their company at `/register`
@@ -78,6 +80,46 @@ export DB_PASSWORD=your_password
 export ALLOWED_ORIGINS=http://localhost:3000
 mvn spring-boot:run
 ```
+
+## Testing
+
+### Frontend — Vitest + Testing Library
+
+```bash
+cd frontend
+npm test            # single run (what CI runs)
+npm run test:watch  # watch mode
+```
+
+- `src/lib/*.test.ts` — data access (Supabase query building, soft delete, errors) and pure helpers
+- `src/components/**/*.test.tsx` — UI kit, command palette (Ctrl+K), client form
+- `src/app/(backoffice)/**/*.test.tsx` — full screens: dashboard, clients, quotes list, new quote, quote detail
+- Supabase is replaced by a recording double (`src/test/supabaseMock.ts`), so tests need no network or database.
+
+### Backend — JUnit 5 + Mockito + MockMvc
+
+```bash
+cd backend
+mvn test
+```
+
+- Domain and DTO validation rules
+- MapStruct mappers (generated implementations)
+- Use cases with mocked repositories
+- Controllers with `@WebMvcTest`, including error responses (400 / 404 / 500 as Problem Details)
+
+### Pending database migrations
+
+SQL files in `supabase/migrations/` (all idempotent). Already applied to production as of 2026-10-16.
+`schema.sql` already includes them for fresh installs.
+
+- `20261016_bootstrap_company_free_plan.sql` — self-service signup always starts on the free plan (security fix).
+- `20261017_plan_limits_and_unique_quote_numbers.sql` — enforces plan limits in the database and makes quote numbers unique per company.
+- `20261018_revoke_anon_internal_rpcs.sql` — `bootstrap_company` and `company_limit` are no longer callable without a session.
+
+Database tests (schema + migrations against a throwaway Postgres): `PGHOST=... PGUSER=postgres supabase/tests/run.sh`.
+
+See `docs/analisis-ux-qa.md` for the latest UX/QA audit.
 
 ## Environment variables
 

@@ -1,4 +1,4 @@
-import { Sidebar } from '@/components/layout/Sidebar';
+import { AppShell } from '@/components/layout/AppShell';
 import { PermissionsProvider } from '@/context/PermissionsContext';
 import { CompanyProvider } from '@/context/CompanyContext';
 
@@ -6,12 +6,7 @@ export default function BackofficeLayout({ children }: { children: React.ReactNo
   return (
     <CompanyProvider>
       <PermissionsProvider>
-        <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-slate-950">
-          <Sidebar />
-          <main className="flex-1 overflow-y-auto">
-            <div className="p-8">{children}</div>
-          </main>
-        </div>
+        <AppShell>{children}</AppShell>
       </PermissionsProvider>
     </CompanyProvider>
   );

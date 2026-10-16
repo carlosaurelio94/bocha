@@ -1,10 +1,15 @@
 package com.viverourbano.backoffice.infrastructure.web.advice;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.net.URI;
@@ -56,6 +61,47 @@ public class GlobalExceptionHandler {
                         (a, b) -> a
                 ));
         problem.setProperty("errors", errors);
+        return problem;
+    }
+
+    /**
+     * 400 — parámetro de URL/query con tipo inválido (UUID mal formado, enum inexistente).
+     * Sin esto caían en el handler genérico y respondían 500.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "Valor inválido para '" + ex.getName() + "'");
+        problem.setType(URI.create("/errors/bad-request"));
+        return problem;
+    }
+
+    /**
+     * 400 — body ilegible (JSON mal formado, enum o fecha con formato inválido)
+     * o falta un parámetro obligatorio.
+     */
+    @ExceptionHandler({
+            HttpMessageNotReadableException.class,
+            MissingServletRequestParameterException.class,
+            MissingRequestHeaderException.class
+    })
+    public ProblemDetail handleBadRequest(Exception ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "La solicitud está mal formada");
+        problem.setType(URI.create("/errors/bad-request"));
+        return problem;
+    }
+
+    /**
+     * 409 — violación de una restricción de la base (p. ej. número de presupuesto
+     * repetido por el índice único company_id + quote_number). No es un error
+     * del servidor: el cliente puede reintentar con otro valor.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleConflict(DataIntegrityViolationException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, "El dato ya existe o entra en conflicto con otro registro");
+        problem.setType(URI.create("/errors/conflict"));
         return problem;
     }
 

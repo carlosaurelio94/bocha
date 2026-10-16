@@ -22,8 +22,8 @@ export function useCreateQuoteInformation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (dto: { name: string; information: string }) => createQuoteInformation(dto),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: infoKeys.all }); toast.success('Preset creado'); },
-    onError:   () => toast.error('No se pudo crear el preset'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: infoKeys.all }); toast.success('Texto creado'); },
+    onError:   () => toast.error('No se pudo crear el texto'),
   });
 }
 
@@ -32,8 +32,8 @@ export function useUpdateQuoteInformation() {
   return useMutation({
     mutationFn: ({ id, dto }: { id: string; dto: { name?: string; information?: string } }) =>
       updateQuoteInformation(id, dto),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: infoKeys.all }); toast.success('Preset actualizado'); },
-    onError:   () => toast.error('No se pudo actualizar el preset'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: infoKeys.all }); toast.success('Texto actualizado'); },
+    onError:   () => toast.error('No se pudo actualizar el texto'),
   });
 }
 
@@ -41,7 +41,7 @@ export function useDeleteQuoteInformation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteQuoteInformation(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: infoKeys.all }); toast.success('Preset eliminado'); },
-    onError:   () => toast.error('No se pudo eliminar el preset'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: infoKeys.all }); toast.success('Texto eliminado'); },
+    onError:   () => toast.error('No se pudo eliminar el texto'),
   });
 }

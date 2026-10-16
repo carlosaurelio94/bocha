@@ -1,9 +1,23 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { ShieldCheck, Plus, X, Loader2, ChevronDown, UserPlus, Eye, EyeOff, KeyRound } from 'lucide-react';
+import { ShieldCheck, UserPlus, KeyRound, Trash2, Users } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { requestJson } from '@/lib/http';
 import { usePermissions } from '@/hooks/usePermissions';
+import { normalizeUsername, MIN_PASSWORD } from '@/lib/signupValidation';
+import { roleLabel } from '@/lib/roles';
+import { Avatar }        from '@/components/ui/Avatar';
+import { Button }        from '@/components/ui/Button';
+import { Card }          from '@/components/ui/Card';
+import { EmptyState }    from '@/components/ui/EmptyState';
+import { Input }         from '@/components/ui/Input';
+import { Modal }         from '@/components/ui/Modal';
+import { PageHeader }    from '@/components/ui/PageHeader';
+import { PasswordInput } from '@/components/ui/PasswordInput';
+import { Select }        from '@/components/ui/Select';
+import { ListSkeleton }  from '@/components/ui/Skeleton';
 import type { Role, UserWithRoles } from '@/types/permissions';
 
 // ─── tipos crudos de Supabase ──────────────────────────────
@@ -12,254 +26,155 @@ interface ProfileRow {
   email:        string;
   username:     string | null;
   display_name: string | null;
-  user_roles: {
-    role: { id: string; name: string; description: string | null };
-  }[];
+  user_roles: { role: { id: string; name: string; description: string | null } }[];
 }
 
-const ROLE_COLORS: Record<string, string> = {
-  administrador:        'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
-  usuario_clientes:     'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  usuario_presupuestos: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-  viewer:               'bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-slate-300',
-};
 
-// ─── Formulario crear usuario ──────────────────────────────
-interface CreateUserFormProps {
-  roles: Role[];
-  onCreated: () => void;
-}
-
-function CreateUserForm({ roles, onCreated }: CreateUserFormProps) {
-  const [open,        setOpen]        = useState(false);
+// ─── Modal: crear usuario ──────────────────────────────────
+function CreateUserModal({ open, roles, onClose, onCreated }: {
+  open: boolean; roles: Role[]; onClose: () => void; onCreated: () => void;
+}) {
   const [username,    setUsername]    = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password,    setPassword]    = useState('');
-  const [showPass,    setShowPass]    = useState(false);
   const [roleId,      setRoleId]      = useState('');
   const [error,       setError]       = useState('');
   const [saving,      setSaving]      = useState(false);
 
-  const reset = () => {
+  const close = () => {
     setUsername(''); setDisplayName(''); setPassword(''); setRoleId(''); setError('');
+    onClose();
   };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!roleId) { setError('Seleccioná un rol.'); return; }
+    if (username.length < 3)          { setError('El usuario debe tener al menos 3 caracteres.'); return; }
+    if (password.length < MIN_PASSWORD) { setError(`La contraseña debe tener al menos ${MIN_PASSWORD} caracteres.`); return; }
+    if (!roleId)                      { setError('Elegí qué va a poder hacer.'); return; }
+
     setSaving(true);
     setError('');
-
-    const res = await fetch('/api/admin/users', {
+    const res = await requestJson('/api/admin/users', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ username, password, roleId, displayName }),
-    });
-
-    const json = await res.json() as { ok?: boolean; error?: string };
-
-    if (!res.ok || !json.ok) {
-      setError(json.error ?? 'Error al crear el usuario.');
-      setSaving(false);
-      return;
-    }
-
-    reset();
-    setOpen(false);
+    }, 'No se pudo crear el usuario.');
     setSaving(false);
+
+    if (!res.ok) { setError(res.error); return; }
+    toast.success(`Usuario ${username} creado`);
+    close();
     onCreated();
   };
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white
-                   hover:bg-green-700 transition-colors"
-      >
-        <UserPlus className="h-4 w-4" />
-        Crear usuario
-      </button>
-    );
-  }
-
   return (
-    <div className="rounded-xl border border-green-200 bg-green-50 p-6 dark:border-green-900/40 dark:bg-green-950/20">
-      <h3 className="mb-4 text-sm font-semibold text-gray-800 dark:text-slate-200">Nuevo usuario</h3>
-      <form onSubmit={handleCreate} className="grid gap-4 sm:grid-cols-2">
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-600 dark:text-slate-400">Usuario *</label>
-          <input
-            required
-            value={username}
-            onChange={e => setUsername(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-            placeholder="juan_perez"
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-green-500"
-          />
-          <p className="text-xs text-gray-400">Solo minúsculas y guión bajo</p>
+    <Modal open={open} onClose={close} title="Nuevo usuario" description="Va a entrar con este usuario y contraseña.">
+      <form onSubmit={handleCreate} className="flex flex-col gap-4" noValidate>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Input label="Nombre" id="new-user-display" value={displayName} placeholder="Juan Pérez"
+            onChange={(e) => setDisplayName(e.target.value)} />
+          <Input label="Usuario" id="new-user-username" required value={username} placeholder="juan_perez"
+            autoCapitalize="none" autoCorrect="off" spellCheck={false}
+            hint="Minúsculas, números o guion bajo."
+            onChange={(e) => setUsername(normalizeUsername(e.target.value))} />
         </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-600 dark:text-slate-400">Nombre visible</label>
-          <input
-            value={displayName}
-            onChange={e => setDisplayName(e.target.value)}
-            placeholder="Juan Pérez"
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-green-500"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-600 dark:text-slate-400">Contraseña *</label>
-          <div className="relative">
-            <input
-              required
-              type={showPass ? 'text' : 'password'}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="Mínimo 6 caracteres"
-              minLength={6}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-9 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-green-500"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPass(!showPass)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-600 dark:text-slate-400">Rol *</label>
-          <select
-            required
-            value={roleId}
-            onChange={e => setRoleId(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-green-500"
-          >
-            <option value="">Seleccioná un rol</option>
-            {roles.map((r) => (
-              <option key={r.id} value={r.id}>{r.name}</option>
-            ))}
-          </select>
-        </div>
+        <PasswordInput label="Contraseña" id="new-user-password" required autoComplete="new-password"
+          value={password} onChange={(e) => setPassword(e.target.value)} hint={`Mínimo ${MIN_PASSWORD} caracteres.`} />
+        <Select label="Rol" id="new-user-role" required value={roleId} onChange={(e) => setRoleId(e.target.value)}>
+          <option value="">Elegí qué va a poder hacer…</option>
+          {roles.map((r) => (
+            <option key={r.id} value={r.id}>{roleLabel(r.name)}{r.description ? ` — ${r.description}` : ''}</option>
+          ))}
+        </Select>
 
         {error && (
-          <p className="sm:col-span-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-            {error}
-          </p>
+          <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{error}</p>
         )}
 
-        <div className="sm:col-span-2 flex gap-2 justify-end">
-          <button
-            type="button"
-            onClick={() => { reset(); setOpen(false); }}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-800"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
-          >
-            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-            {saving ? 'Creando...' : 'Crear usuario'}
-          </button>
+        <div className="flex flex-col-reverse gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:justify-end dark:border-slate-800">
+          <Button type="button" variant="secondary" onClick={close} disabled={saving}>Cancelar</Button>
+          <Button type="submit" loading={saving}>Crear usuario</Button>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }
 
-// ─── Modal reset contraseña ────────────────────────────────
-interface ResetPasswordModalProps {
-  user:    UserWithRoles & { username?: string | null };
-  onClose: () => void;
-}
+// ─── Modal: resetear contraseña ────────────────────────────
+function ResetPasswordModal({ user, onClose }: { user: UserWithRoles | null; onClose: () => void }) {
+  const [newPass, setNewPass] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [saving,  setSaving]  = useState(false);
+  const [error,   setError]   = useState('');
 
-function ResetPasswordModal({ user, onClose }: ResetPasswordModalProps) {
-  const [newPass,  setNewPass]  = useState('');
-  const [confirm,  setConfirm]  = useState('');
-  const [showPass, setShowPass] = useState(false);
-  const [saving,   setSaving]   = useState(false);
-  const [error,    setError]    = useState('');
-  const [ok,       setOk]       = useState(false);
+  const close = () => { setNewPass(''); setConfirm(''); setError(''); onClose(); };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPass.length < 6)    { setError('Mínimo 6 caracteres.'); return; }
-    if (newPass !== confirm)   { setError('Las contraseñas no coinciden.'); return; }
+    if (!user) return;
+    if (newPass.length < MIN_PASSWORD) { setError(`Mínimo ${MIN_PASSWORD} caracteres.`); return; }
+    if (newPass !== confirm)           { setError('Las contraseñas no coinciden.'); return; }
     setSaving(true); setError('');
-    const res  = await fetch('/api/admin/users', {
+    const res = await requestJson('/api/admin/users', {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ userId: user.id, newPassword: newPass }),
-    });
-    const json = await res.json() as { ok?: boolean; error?: string };
-    if (!res.ok || !json.ok) { setError(json.error ?? 'Error al cambiar la contraseña.'); setSaving(false); return; }
-    setOk(true); setSaving(false);
+    }, 'No se pudo cambiar la contraseña.');
+    setSaving(false);
+    if (!res.ok) { setError(res.error); return; }
+    toast.success('Contraseña actualizada. Pasásela por un canal seguro.');
+    close();
   };
 
-  const display = user.display_name ?? (user as UserWithRoles & { username?: string | null }).username ?? user.email;
+  return (
+    <Modal open={!!user} onClose={close} title="Cambiar contraseña" size="sm"
+      description={user ? `De ${user.display_name ?? user.username ?? user.email}` : undefined}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+        <PasswordInput label="Nueva contraseña" id="reset-new" required autoComplete="new-password"
+          value={newPass} onChange={(e) => setNewPass(e.target.value)} hint={`Mínimo ${MIN_PASSWORD} caracteres.`} />
+        <PasswordInput label="Repetir contraseña" id="reset-confirm" required autoComplete="new-password"
+          value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{error}</p>}
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button type="button" variant="secondary" onClick={close} disabled={saving}>Cancelar</Button>
+          <Button type="submit" loading={saving}>Cambiar contraseña</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Modal: quitar usuario ─────────────────────────────────
+function RemoveUserModal({ user, onClose, onRemoved }: {
+  user: UserWithRoles | null; onClose: () => void; onRemoved: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+
+  const handleRemove = async () => {
+    if (!user) return;
+    setSaving(true);
+    const res = await requestJson(`/api/admin/users?userId=${encodeURIComponent(user.id)}`, { method: 'DELETE' },
+      'No se pudo quitar el usuario.');
+    setSaving(false);
+    if (!res.ok) { toast.error(res.error); return; }
+    toast.success('Usuario quitado de la empresa');
+    onClose();
+    onRemoved();
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-200 dark:border-slate-700 px-6 py-4">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-slate-100 flex items-center gap-2">
-            <KeyRound className="h-4 w-4 text-green-600" /> Cambiar contraseña
-          </h2>
-          <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-slate-800"><X className="h-4 w-4" /></button>
-        </div>
-        <div className="p-6">
-          <p className="text-sm text-gray-500 dark:text-slate-400 mb-4">
-            Cambiando contraseña de <span className="font-medium text-gray-800 dark:text-slate-200">{display}</span>
-          </p>
-          {ok ? (
-            <div className="rounded-lg bg-green-50 dark:bg-green-900/20 px-4 py-3 text-sm text-green-700 dark:text-green-400">
-              ✓ Contraseña actualizada correctamente.
-              <button onClick={onClose} className="ml-2 underline">Cerrar</button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-              <div className="relative">
-                <input
-                  type={showPass ? 'text' : 'password'}
-                  required minLength={6}
-                  placeholder="Nueva contraseña"
-                  value={newPass}
-                  onChange={e => setNewPass(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-9 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-green-500"
-                />
-                <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400">
-                  {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              <input
-                type="password"
-                required
-                placeholder="Repetir contraseña"
-                value={confirm}
-                onChange={e => setConfirm(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-green-500"
-              />
-              {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{error}</p>}
-              <div className="flex gap-2 justify-end">
-                <button type="button" onClick={onClose} className="rounded-lg border border-gray-300 px-4 py-2 text-sm dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-800">Cancelar</button>
-                <button type="submit" disabled={saving} className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60">
-                  {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {saving ? 'Guardando...' : 'Cambiar'}
-                </button>
-              </div>
-            </form>
-          )}
+    <Modal open={!!user} onClose={onClose} title="Quitar usuario" size="sm">
+      <div className="flex flex-col gap-5">
+        <p className="text-sm text-gray-600 dark:text-slate-300">
+          <span className="font-semibold text-gray-900 dark:text-slate-100">{user?.display_name ?? user?.username}</span>{' '}
+          ya no va a poder entrar a esta empresa. Lo que cargó (clientes, presupuestos) se mantiene.
+        </p>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button variant="danger" loading={saving} onClick={handleRemove}>Sí, quitar</Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -268,239 +183,165 @@ export default function AdminPage() {
   const { isAdmin, loading: permLoading } = usePermissions();
   const [users,       setUsers]       = useState<UserWithRoles[]>([]);
   const [roles,       setRoles]       = useState<Role[]>([]);
+  const [meId,        setMeId]        = useState<string | null>(null);
   const [loading,     setLoading]     = useState(true);
-  const [adding,      setAdding]      = useState<string | null>(null);
-  const [saving,      setSaving]      = useState(false);
+  const [changing,    setChanging]    = useState<string | null>(null);
+  const [creating,    setCreating]    = useState(false);
   const [resettingPw, setResettingPw] = useState<UserWithRoles | null>(null);
+  const [removing,    setRemoving]    = useState<UserWithRoles | null>(null);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
-    const [profilesRes, rolesRes] = await Promise.all([
+    const [profilesRes, rolesRes, meRes] = await Promise.all([
       supabase.from('profiles').select(`
         id, email, username, display_name,
         user_roles ( role:roles ( id, name, description ) )
       `),
       supabase.from('roles').select('id, name, description').order('name'),
+      supabase.auth.getUser(),
     ]);
 
-    if (profilesRes.data) {
-      const rows = profilesRes.data as unknown as ProfileRow[];
-      setUsers(
-        rows.map((p) => ({
+    if (profilesRes.error) toast.error('No se pudieron cargar los usuarios.');
+    const rows = (profilesRes.data ?? []) as unknown as ProfileRow[];
+    setUsers(
+      rows
+        // Solo miembros de esta empresa (user_roles ya viene filtrado por la empresa activa)
+        .filter((p) => (p.user_roles ?? []).length > 0)
+        .map((p) => ({
           id:           p.id,
           email:        p.email,
           display_name: p.display_name,
           username:     p.username,
-          roles: p.user_roles.map((ur) => ({
-            id:          ur.role.id,
-            name:        ur.role.name,
-            description: ur.role.description,
-          })),
+          roles: p.user_roles.map((ur) => ({ id: ur.role.id, name: ur.role.name, description: ur.role.description })),
         }))
-      );
-    }
-    if (rolesRes.data) setRoles(rolesRes.data as Role[]);
+    );
+    setRoles((rolesRes.data ?? []) as Role[]);
+    setMeId(meRes.data.user?.id ?? null);
     setLoading(false);
   }, []);
 
   useEffect(() => { void fetchData(); }, [fetchData]); // eslint-disable-line react-hooks/set-state-in-effect
 
-  const addRole = async (userId: string, roleId: string) => {
-    setSaving(true);
-    await supabase.from('user_roles').insert({ user_id: userId, role_id: roleId });
-    setAdding(null);
+  /**
+   * Cada usuario tiene UN rol por empresa: insertar en user_roles hace upsert
+   * del rol. (Antes la UI mostraba varios roles y la ✕ de un rol borraba la
+   * membresía, sacando al usuario de la empresa sin avisar.)
+   */
+  const changeRole = async (user: UserWithRoles, roleId: string) => {
+    setChanging(user.id);
+    const { error } = await supabase.from('user_roles').insert({ user_id: user.id, role_id: roleId });
+    setChanging(null);
+    if (error) { toast.error('No se pudo cambiar el rol.'); return; }
+    toast.success(`Ahora ${user.display_name ?? user.username} es ${roleLabel(roles.find((r) => r.id === roleId)?.name ?? '')}`);
     await fetchData();
-    setSaving(false);
   };
 
-  const removeRole = async (userId: string, roleId: string) => {
-    setSaving(true);
-    await supabase.from('user_roles').delete().eq('user_id', userId).eq('role_id', roleId);
-    await fetchData();
-    setSaving(false);
-  };
-
-  const deleteUser = async (userId: string) => {
-    if (!confirm('¿Seguro que querés eliminar este usuario?')) return;
-    setSaving(true);
-    await fetch(`/api/admin/users?userId=${userId}`, { method: 'DELETE' });
-    await fetchData();
-    setSaving(false);
-  };
-
-  const availableRoles = (user: UserWithRoles) =>
-    roles.filter((r) => !user.roles.some((ur) => ur.id === r.id));
-
-  if (permLoading || loading) {
+  if (permLoading || (loading && isAdmin)) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Usuarios y roles" />
+        <Card flush><ListSkeleton rows={3} /></Card>
       </div>
     );
   }
 
   if (!isAdmin) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center gap-3 text-gray-400">
-        <ShieldCheck className="h-10 w-10" />
-        <p className="text-sm">No tenés permisos para acceder a esta sección.</p>
-      </div>
+      <EmptyState
+        icon={ShieldCheck}
+        title="Sección solo para administradores"
+        description="Pedile a un administrador de tu empresa que te dé acceso."
+      />
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Usuarios y roles"
+        description="Quién entra a tu backoffice y qué puede hacer."
+        actions={
+          <Button onClick={() => setCreating(true)}>
+            <UserPlus className="h-4 w-4" />
+            Nuevo usuario
+          </Button>
+        }
+      />
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <ShieldCheck className="h-7 w-7 text-green-600" />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Administración</h1>
-            <p className="text-sm text-gray-500 dark:text-slate-400">Gestión de usuarios y roles</p>
-          </div>
-        </div>
-        <CreateUserForm roles={roles} onCreated={fetchData} />
-      </div>
+      <Card flush title={`Usuarios (${users.length})`}>
+        {users.length === 0 ? (
+          <EmptyState icon={Users} title="Todavía no hay usuarios" description="Sumá a tu equipo para que carguen clientes y presupuestos." />
+        ) : (
+          <ul className="divide-y divide-gray-100 dark:divide-slate-800">
+            {users.map((user) => {
+              const isMe    = user.id === meId;
+              const display = user.display_name ?? user.username ?? user.email;
+              const current = user.roles[0];
+              return (
+                <li key={user.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:gap-4">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <Avatar name={display} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-gray-900 dark:text-slate-100">
+                        {display}{isMe && <span className="ml-1.5 text-xs font-normal text-gray-500 dark:text-slate-400">(vos)</span>}
+                      </p>
+                      <p className="truncate text-xs text-gray-500 dark:text-slate-400">{user.username ? `@${user.username}` : user.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="w-44">
+                      <Select
+                        aria-label={`Rol de ${display}`}
+                        value={current?.id ?? ''}
+                        disabled={isMe || changing === user.id}
+                        title={isMe ? 'No podés cambiar tu propio rol' : undefined}
+                        onChange={(e) => void changeRole(user, e.target.value)}
+                      >
+                        {!current && <option value="">Sin rol</option>}
+                        {roles.map((r) => <option key={r.id} value={r.id}>{roleLabel(r.name)}</option>)}
+                      </Select>
+                    </div>
+                    <button
+                      onClick={() => setResettingPw(user)}
+                      aria-label={`Cambiar contraseña de ${display}`}
+                      title="Cambiar contraseña"
+                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+                    >
+                      <KeyRound className="h-4 w-4" />
+                    </button>
+                    {!isMe && (
+                      <button
+                        onClick={() => setRemoving(user)}
+                        aria-label={`Quitar a ${display}`}
+                        title="Quitar de la empresa"
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
 
       {/* Referencia de roles */}
-      <section className="rounded-xl border border-gray-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-900">
-        <h2 className="mb-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Roles disponibles</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <Card title="Qué puede hacer cada rol">
+        <dl className="grid gap-4 sm:grid-cols-2">
           {roles.map((role) => (
-            <div key={role.id} className="rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-slate-700 dark:bg-slate-800">
-              <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_COLORS[role.name] ?? 'bg-gray-100 text-gray-600'}`}>
-                {role.name}
-              </span>
-              {role.description && (
-                <p className="mt-1.5 text-xs text-gray-500 dark:text-slate-400">{role.description}</p>
-              )}
+            <div key={role.id}>
+              <dt className="text-sm font-medium text-gray-900 dark:text-slate-100">{roleLabel(role.name)}</dt>
+              {role.description && <dd className="mt-0.5 text-sm text-gray-500 dark:text-slate-400">{role.description}</dd>}
             </div>
           ))}
-        </div>
-      </section>
+        </dl>
+      </Card>
 
-      {/* Tabla de usuarios */}
-      <section className="rounded-xl border border-gray-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-        <div className="border-b border-gray-200 px-6 py-4 dark:border-slate-700">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-slate-300">
-            Usuarios ({users.length})
-          </h2>
-        </div>
-
-        <div className="divide-y divide-gray-100 dark:divide-slate-800">
-          {users.map((user) => {
-            const display = user.display_name ?? (user as UserWithRoles & { username?: string }).username ?? user.email;
-            const sub     = (user as UserWithRoles & { username?: string }).username
-              ? `@${(user as UserWithRoles & { username?: string }).username}`
-              : user.email;
-
-            return (
-              <div key={user.id} className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:gap-6">
-
-                {/* Info */}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-gray-900 dark:text-slate-100">{display}</p>
-                  <p className="truncate text-xs text-gray-500 dark:text-slate-400">{sub}</p>
-                </div>
-
-                {/* Roles actuales */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {user.roles.length === 0 && (
-                    <span className="text-xs text-gray-400 dark:text-slate-500">Sin roles</span>
-                  )}
-                  {user.roles.map((role) => (
-                    <span
-                      key={role.id}
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_COLORS[role.name] ?? 'bg-gray-100 text-gray-600'}`}
-                    >
-                      {role.name}
-                      <button
-                        onClick={() => removeRole(user.id, role.id)}
-                        disabled={saving}
-                        className="ml-0.5 rounded-full p-0.5 hover:bg-black/10 disabled:opacity-50"
-                        title="Quitar rol"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-
-                {/* Agregar rol */}
-                <div className="relative shrink-0 flex items-center gap-2">
-                  {availableRoles(user).length > 0 && (
-                    <div className="relative">
-                      <button
-                        onClick={() => setAdding(adding === user.id ? null : user.id)}
-                        className="flex items-center gap-1 rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-500
-                                   hover:border-green-400 hover:text-green-600 transition-colors
-                                   dark:border-slate-600 dark:text-slate-400 dark:hover:border-green-500 dark:hover:text-green-400"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        Rol
-                        <ChevronDown className="h-3.5 w-3.5" />
-                      </button>
-
-                      {adding === user.id && (
-                        <div className="absolute right-0 top-full z-10 mt-1 w-52 rounded-xl border border-gray-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                          {availableRoles(user).map((role) => (
-                            <button
-                              key={role.id}
-                              onClick={() => addRole(user.id, role.id)}
-                              disabled={saving}
-                              className="flex w-full flex-col px-4 py-2.5 text-left text-sm hover:bg-gray-50 disabled:opacity-50 dark:hover:bg-slate-800 first:rounded-t-xl last:rounded-b-xl"
-                            >
-                              <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_COLORS[role.name] ?? 'bg-gray-100'}`}>
-                                {role.name}
-                              </span>
-                              {role.description && (
-                                <span className="mt-0.5 text-xs text-gray-400 dark:text-slate-500">{role.description}</span>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Resetear contraseña */}
-                  <button
-                    onClick={() => setResettingPw(user)}
-                    disabled={saving}
-                    className="rounded-lg border border-dashed border-blue-200 px-2 py-1.5 text-xs text-blue-400
-                               hover:border-blue-400 hover:text-blue-600 transition-colors disabled:opacity-50
-                               dark:border-blue-900/40 dark:text-blue-500 dark:hover:border-blue-500"
-                    title="Cambiar contraseña"
-                  >
-                    <KeyRound className="h-3.5 w-3.5" />
-                  </button>
-
-                  {/* Eliminar usuario */}
-                  <button
-                    onClick={() => deleteUser(user.id)}
-                    disabled={saving}
-                    className="rounded-lg border border-dashed border-red-200 px-2 py-1.5 text-xs text-red-400
-                               hover:border-red-400 hover:text-red-600 transition-colors disabled:opacity-50
-                               dark:border-red-900/40 dark:text-red-500 dark:hover:border-red-500"
-                    title="Eliminar usuario"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {resettingPw && (
-        <ResetPasswordModal
-          user={resettingPw}
-          onClose={() => setResettingPw(null)}
-        />
-      )}
+      <CreateUserModal open={creating} roles={roles} onClose={() => setCreating(false)} onCreated={fetchData} />
+      <ResetPasswordModal user={resettingPw} onClose={() => setResettingPw(null)} />
+      <RemoveUserModal user={removing} onClose={() => setRemoving(null)} onRemoved={fetchData} />
     </div>
   );
 }

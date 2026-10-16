@@ -6,6 +6,8 @@ import { useSearchParams } from 'next/navigation';
 import { Leaf } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { PRODUCT_NAME } from '@/lib/brand';
 
 interface Branding { name: string; primary_color: string; logo_url: string | null }
@@ -109,38 +111,31 @@ function LoginInner() {
           <h2 className="mb-6 text-lg font-semibold text-gray-900 dark:text-slate-100">Iniciar sesión</h2>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Usuario</label>
-              <input
-                type="text"
-                required
-                autoComplete="username"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900
-                           focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500
-                           dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                placeholder="tu_usuario"
-              />
-            </div>
+            <Input
+              label="Usuario"
+              id="login-username"
+              required
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              placeholder="tu_usuario"
+            />
 
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Contraseña</label>
-              <input
-                type="password"
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900
-                           focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500
-                           dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                placeholder="••••••••"
-              />
-            </div>
+            <PasswordInput
+              label="Contraseña"
+              id="login-password"
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+            />
 
             {error && (
-              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+              <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
                 {error}
               </p>
             )}

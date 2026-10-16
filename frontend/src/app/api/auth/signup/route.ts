@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { validateSignup } from '@/lib/signupValidation';
 
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -15,34 +16,30 @@ interface Body {
   password:     string;
   displayName?: string;
   email?:       string;   // opcional — si no, se genera @<slug>.internal
-  planSlug?:    string;   // default 'free'
 }
 
-const slugRe = /^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?$/;
-const userRe = /^[a-z0-9_]{3,32}$/;
 
 export async function POST(request: Request) {
   let body: Body;
   try { body = await request.json() as Body; }
   catch { return NextResponse.json({ error: 'JSON inválido' }, { status: 400 }); }
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'JSON inválido' }, { status: 400 });
+  }
 
-  const companySlug = body.companySlug?.trim().toLowerCase();
-  const username    = body.username?.trim().toLowerCase();
-  const companyName = body.companyName?.trim();
-  const password    = body.password;
-  const planSlug    = body.planSlug?.trim().toLowerCase() || 'free';
+  // Campos que no son string (p. ej. números) se tratan como vacíos en vez de reventar con 500
+  const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  const companySlug = str(body.companySlug).trim().toLowerCase();
+  const username    = str(body.username).trim().toLowerCase();
+  const companyName = str(body.companyName).trim();
+  const password    = str(body.password);
+  // El plan NO lo elige el cliente: el alta self-service siempre es 'free'.
+  const planSlug    = 'free';
 
-  if (!companySlug || !slugRe.test(companySlug)) {
-    return NextResponse.json({ error: 'Slug de empresa inválido (3-32 chars, letras/números/-)' }, { status: 400 });
-  }
-  if (!companyName || companyName.length < 2) {
-    return NextResponse.json({ error: 'Nombre de empresa requerido' }, { status: 400 });
-  }
-  if (!username || !userRe.test(username)) {
-    return NextResponse.json({ error: 'Usuario inválido (3-32 chars, letras/números/_)' }, { status: 400 });
-  }
-  if (!password || password.length < 8) {
-    return NextResponse.json({ error: 'Contraseña debe tener al menos 8 caracteres' }, { status: 400 });
+  const errors = validateSignup({ companyName, companySlug, username, password });
+  const firstError = Object.values(errors)[0];
+  if (firstError) {
+    return NextResponse.json({ error: firstError, fields: errors }, { status: 400 });
   }
 
   const admin = adminClient();
@@ -53,10 +50,10 @@ export async function POST(request: Request) {
     admin.rpc('is_username_available',     { p_username: username }),
   ]);
 
-  if (slugFree === false) return NextResponse.json({ error: 'Ese slug ya está en uso' }, { status: 409 });
-  if (userFree === false) return NextResponse.json({ error: 'Ese usuario ya está en uso' }, { status: 409 });
+  if (slugFree === false) return NextResponse.json({ error: 'Esa dirección ya está en uso, probá con otra', fields: { companySlug: 'Ya está en uso.' } }, { status: 409 });
+  if (userFree === false) return NextResponse.json({ error: 'Ese usuario ya está en uso', fields: { username: 'Ya está en uso, elegí otro.' } }, { status: 409 });
 
-  const email = body.email?.trim().toLowerCase() || `${username}@${companySlug}.internal`;
+  const email = str(body.email).trim().toLowerCase() || `${username}@${companySlug}.internal`;
 
   // 1. Crear user en Supabase Auth
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
@@ -92,7 +89,7 @@ export async function POST(request: Request) {
     p_slug:         companySlug,
     p_company_name: companyName,
     p_username:     username,
-    p_display_name: body.displayName ?? username,
+    p_display_name: str(body.displayName).trim() || username,
     p_plan_slug:    planSlug,
   });
 

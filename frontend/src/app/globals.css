@@ -3,9 +3,29 @@
 /* ── Dark mode: activar con la clase .dark en <html> ── */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ── Animaciones reutilizables ── */
+@theme {
+  --animate-fade-in:  fade-in 150ms ease-out;
+  --animate-slide-up: slide-up 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slide-in-left: slide-in-left 200ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slide-in-left {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(0); }
+  }
+}
+
 /* ── Variables de color ── */
 :root {
-  --bg-page:      #f9fafb;
+  --bg-page:      #f8fafc;
   --bg-surface:   #ffffff;
   --bg-subtle:    #f3f4f6;
   --text-primary: #111827;
@@ -14,9 +34,9 @@
 }
 
 .dark {
-  --bg-page:      #0f172a;
-  --bg-surface:   #1e293b;
-  --bg-subtle:    #273548;
+  --bg-page:      #020617;
+  --bg-surface:   #0f172a;
+  --bg-subtle:    #1e293b;
   --text-primary: #f1f5f9;
   --text-muted:   #94a3b8;
   --border:       #334155;
@@ -25,6 +45,21 @@
 body {
   background-color: var(--bg-page);
   color:            var(--text-primary);
-  font-family: Arial, Helvetica, sans-serif;
   transition: background-color 0.2s, color 0.2s;
+}
+
+/* Botones y links con foco visible al navegar con teclado
+   (los inputs ya tienen su propio ring de foco) */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px solid #16a34a;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

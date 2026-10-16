@@ -2,12 +2,26 @@ import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { parsePlanLimit } from '@/lib/errors';
 
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error('Missing Supabase admin credentials');
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+}
+
+const USERNAME_RE   = /^[a-z0-9_]{3,32}$/;
+const MIN_PASSWORD  = 8;
+
+/** Lee el body JSON sin reventar con 500 si viene mal formado. */
+async function readJson<T>(request: Request): Promise<T | null> {
+  try {
+    const body = await request.json();
+    return body && typeof body === 'object' ? body as T : null;
+  } catch {
+    return null;
+  }
 }
 
 interface AdminContext {
@@ -76,14 +90,26 @@ export async function POST(request: Request) {
   const auth = await requireAdmin();
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
 
-  const body = await request.json() as { username: string; password: string; roleId: string; displayName?: string };
-  const { username, password, roleId, displayName } = body;
+  const body = await readJson<{ username?: unknown; password?: unknown; roleId?: unknown; displayName?: unknown }>(request);
+  if (!body) return NextResponse.json({ error: 'JSON inválido' }, { status: 400 });
+  const username    = typeof body.username    === 'string' ? body.username    : '';
+  const password    = typeof body.password    === 'string' ? body.password    : '';
+  const roleId      = typeof body.roleId      === 'string' ? body.roleId      : '';
+  const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : '';
 
   if (!username || !password || !roleId) {
     return NextResponse.json({ error: 'Faltan campos requeridos' }, { status: 400 });
   }
 
   const cleanUsername = username.trim().toLowerCase().replace(/\s+/g, '_');
+  // Mismas reglas que el alta self-service: si no, el usuario no puede loguearse
+  // o queda con una contraseña trivial.
+  if (!USERNAME_RE.test(cleanUsername)) {
+    return NextResponse.json({ error: 'Usuario inválido (3-32 caracteres: letras, números o _)' }, { status: 400 });
+  }
+  if (password.length < MIN_PASSWORD) {
+    return NextResponse.json({ error: `La contraseña debe tener al menos ${MIN_PASSWORD} caracteres` }, { status: 400 });
+  }
   // Email interno por empresa — nunca se usa para login, solo para Supabase Auth
   const email = `${cleanUsername}@${auth.ctx.companySlug}.internal`;
 
@@ -107,7 +133,7 @@ export async function POST(request: Request) {
     id:                 userId,
     email,
     username:           cleanUsername,
-    display_name:       displayName ?? cleanUsername,
+    display_name:       displayName || cleanUsername,
     current_company_id: auth.ctx.companyId,
   });
 
@@ -125,6 +151,8 @@ export async function POST(request: Request) {
 
   if (linkError) {
     await admin.auth.admin.deleteUser(userId);
+    const limit = parsePlanLimit(linkError);
+    if (limit) return NextResponse.json({ error: limit.message }, { status: 409 });
     return NextResponse.json({ error: 'Error al asignar empresa/rol' }, { status: 500 });
   }
 
@@ -136,11 +164,13 @@ export async function PATCH(request: Request) {
   const auth = await requireAdmin();
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status });
 
-  const body = await request.json() as { userId: string; newPassword: string };
-  const { userId, newPassword } = body;
+  const body = await readJson<{ userId?: unknown; newPassword?: unknown }>(request);
+  if (!body) return NextResponse.json({ error: 'JSON inválido' }, { status: 400 });
+  const userId      = typeof body.userId      === 'string' ? body.userId      : '';
+  const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
 
-  if (!userId || !newPassword || newPassword.length < 6) {
-    return NextResponse.json({ error: 'Contraseña inválida (mínimo 6 caracteres)' }, { status: 400 });
+  if (!userId || newPassword.length < MIN_PASSWORD) {
+    return NextResponse.json({ error: `Contraseña inválida (mínimo ${MIN_PASSWORD} caracteres)` }, { status: 400 });
   }
 
   const admin = adminClient();
@@ -172,6 +202,11 @@ export async function DELETE(request: Request) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId');
   if (!userId) return NextResponse.json({ error: 'Falta userId' }, { status: 400 });
+
+  // Un admin quitándose a sí mismo podía dejar la empresa sin administrador.
+  if (userId === auth.ctx.userId) {
+    return NextResponse.json({ error: 'No podés quitarte a vos mismo de la empresa' }, { status: 400 });
+  }
 
   const admin = adminClient();
 

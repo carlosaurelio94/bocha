@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { getDeviceId } from './utils';
+import { getDeviceId, sanitizeSearch } from './utils';
 import type { Client, CreateClientDTO, UpdateClientDTO, PaginationParams } from '@/types';
 
 export async function getClients(
@@ -16,8 +16,10 @@ export async function getClients(
     .order('created_at', { ascending: false })
     .range(from, to);
 
-  if (search) {
-    query = query.or(`name.ilike.%${search}%,rif.ilike.%${search}%,phone.ilike.%${search}%`);
+  // Comas o paréntesis en el texto (p. ej. "Jardines, C.A.") rompían el filtro .or()
+  const term = search ? sanitizeSearch(search) : '';
+  if (term) {
+    query = query.or(`name.ilike.%${term}%,rif.ilike.%${term}%,phone.ilike.%${term}%`);
   }
   if (status) {
     query = query.eq('client_status', status);

@@ -13,6 +13,8 @@ interface ModalProps {
   size?:        'sm' | 'md' | 'lg';
 }
 
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 const sizeClasses = {
   sm: 'sm:max-w-sm',
   md: 'sm:max-w-lg',
@@ -29,21 +31,39 @@ export function Modal({ open, onClose, title, description, children, size = 'md'
 
   useEffect(() => {
     if (!open) return;
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      // Trampa de foco: Tab no se escapa del diálogo hacia la página de atrás.
+      if (e.key === 'Tab' && panelRef.current) {
+        const focusables = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last  = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [open, onClose]);
 
   useEffect(() => {
-    document.body.style.overflow = open ? 'hidden' : '';
-    if (open) {
-      // Foco en el primer campo para poder escribir sin tocar el mouse.
-      const first = panelRef.current?.querySelector<HTMLElement>(
-        'input:not([type=hidden]):not([disabled]), textarea, select'
-      );
-      first?.focus();
-    }
-    return () => { document.body.style.overflow = ''; };
+    if (!open) return;
+    // Al cerrar, el foco vuelve al botón que abrió el modal (teclado / lector de pantalla).
+    const opener = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = 'hidden';
+
+    // Foco en el primer campo para poder escribir sin tocar el mouse;
+    // si no hay campos (p. ej. confirmaciones), en el diálogo.
+    const firstField = panelRef.current?.querySelector<HTMLElement>(
+      'input:not([type=hidden]):not([disabled]), textarea, select'
+    );
+    (firstField ?? panelRef.current)?.focus();
+
+    return () => {
+      document.body.style.overflow = '';
+      if (opener && document.contains(opener)) opener.focus();
+    };
   }, [open]);
 
   if (!open) return null;
@@ -59,8 +79,9 @@ export function Modal({ open, onClose, title, description, children, size = 'md'
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
+        tabIndex={-1}
         className={cn(
-          'animate-slide-up relative flex max-h-[92vh] w-full flex-col rounded-t-2xl bg-white shadow-2xl',
+          'animate-slide-up relative flex outline-none max-h-[92vh] w-full flex-col rounded-t-2xl bg-white shadow-2xl',
           'sm:rounded-2xl dark:bg-slate-900 dark:ring-1 dark:ring-slate-700',
           sizeClasses[size]
         )}

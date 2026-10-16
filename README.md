@@ -108,6 +108,15 @@ mvn test
 - Use cases with mocked repositories
 - Controllers with `@WebMvcTest`, including error responses (400 / 404 / 500 as Problem Details)
 
+### Pending database migrations
+
+SQL files in `supabase/migrations/` must be run in the Supabase SQL Editor (they are idempotent).
+`schema.sql` already includes them for fresh installs.
+
+- `20261016_bootstrap_company_free_plan.sql` — self-service signup always starts on the free plan (security fix).
+
+See `docs/analisis-ux-qa.md` for the latest UX/QA audit.
+
 ## Environment variables
 
 ### Frontend (`frontend/.env.local`)

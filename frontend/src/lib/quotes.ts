@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { getDeviceId } from './utils';
+import { getDeviceId, sanitizeSearch } from './utils';
 import type { Quote, CreateQuoteDTO, PaginationParams } from '@/types';
 
 export async function getQuotes(
@@ -9,11 +9,17 @@ export async function getQuotes(
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
+  const term = search ? sanitizeSearch(search) : '';
+
+  // Para filtrar por nombre del cliente hace falta `!inner`: sin eso PostgREST
+  // no filtra los presupuestos, solo deja `client` en null en los que no matchean.
+  const clientJoin = term ? 'client:clients!inner(id, name, rif)' : 'client:clients(id, name, rif)';
+
   let query = supabase
     .from('quotes')
     .select(`
       *,
-      client:clients(id, name, rif),
+      ${clientJoin},
       information:quote_information(id, name)
     `, { count: 'exact' })
     .eq('deleted', false)
@@ -22,7 +28,7 @@ export async function getQuotes(
 
   if (status) query = query.eq('status', status);
   if (clientId) query = query.eq('client_id', clientId);
-  if (search) query = query.ilike('clients.name', `%${search}%`);
+  if (term) query = query.ilike('clients.name', `%${term}%`);
 
   const { data, error, count } = await query;
   if (error) throw error;
@@ -69,7 +75,11 @@ export async function createQuote(dto: CreateQuoteDTO): Promise<Quote> {
         created_by: deviceId,
       }))
     );
-    if (itemsError) throw itemsError;
+    if (itemsError) {
+      // Compensación: no dejar un presupuesto "huérfano" sin ítems.
+      await supabase.from('quotes').update({ deleted: true, updated_by: deviceId }).eq('id', quote.id);
+      throw itemsError;
+    }
   }
 
   return quote as Quote;

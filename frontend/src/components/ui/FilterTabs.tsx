@@ -16,6 +16,7 @@ export function FilterTabs<T extends string>({ value, onChange, options }: Filte
         <button
           key={opt.value}
           type="button"
+          aria-pressed={value === opt.value}
           onClick={() => onChange(opt.value)}
           className={cn(
             'whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors',

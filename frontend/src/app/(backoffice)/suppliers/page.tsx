@@ -352,46 +352,47 @@ export default function SuppliersPage() {
 
       {/* Tabla */}
       <Card flush>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 dark:border-slate-800">
-                {['Razón social', 'Nombre de fantasía', 'Categoría', 'CUIT/VAT', ''].map(h => (
-                  <th key={h} className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-              {loading ? (
-                <tr><td colSpan={5} className="py-12 text-center"><Loader2 className="h-6 w-6 animate-spin text-gray-400 mx-auto" /></td></tr>
-              ) : suppliers.length === 0 ? (
-                <tr><td colSpan={5}>
-                  <EmptyState
-                    icon={Building2}
-                    title={search ? 'Sin resultados' : 'Todavía no cargaste proveedores'}
-                    description={search ? 'Probá con otro nombre.' : 'Cargá a quién le comprás para registrar sus facturas y pagos.'}
-                    action={!search && <Button onClick={() => { setEditing(null); setShowForm(true); }}><Plus className="h-4 w-4" />Agregar proveedor</Button>}
-                  />
-                </td></tr>
-              ) : suppliers.map(s => (
-                <tr key={s.id} onClick={() => setDetail(s)} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800/50">
-                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-slate-100">{s.legal_name}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-slate-400">{s.fantasy_name ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-slate-400">{s.category ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-slate-400">{s.tax_id ?? '—'}</td>
-                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => setDetail(s)} title="Ver detalle" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><Eye className="h-4 w-4" /></button>
-                      <button onClick={() => { setEditing(s); setShowForm(true); }} title="Editar" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><Pencil className="h-4 w-4" /></button>
-                      <button onClick={() => handleLoadInvoice(s)} title="Cargar factura" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><Upload className="h-4 w-4" /></button>
-                      <button onClick={() => handleFilterInvoices(s)} title="Ver facturas" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><List className="h-4 w-4" /></button>
-                    </div>
-                  </td>
+        {/* Vacío: fuera de la tabla para que en mobile no quede cortado por el scroll horizontal */}
+        {!loading && suppliers.length === 0 ? (
+          <EmptyState
+            icon={Building2}
+            title={search ? 'Sin resultados' : 'Todavía no cargaste proveedores'}
+            description={search ? 'Probá con otro nombre.' : 'Cargá a quién le comprás para registrar sus facturas y pagos.'}
+            action={!search && <Button onClick={() => { setEditing(null); setShowForm(true); }}><Plus className="h-4 w-4" />Agregar proveedor</Button>}
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-slate-800">
+                  {['Razón social', 'Nombre de fantasía', 'Categoría', 'CUIT/VAT', ''].map(h => (
+                    <th key={h} className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                {loading ? (
+                  <tr><td colSpan={5} className="py-12 text-center"><Loader2 className="h-6 w-6 animate-spin text-gray-400 mx-auto" /></td></tr>
+                ) : suppliers.map(s => (
+                  <tr key={s.id} onClick={() => setDetail(s)} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800/50">
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-slate-100">{s.legal_name}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-slate-400">{s.fantasy_name ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-slate-400">{s.category ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-slate-400">{s.tax_id ?? '—'}</td>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => setDetail(s)} title="Ver detalle" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><Eye className="h-4 w-4" /></button>
+                        <button onClick={() => { setEditing(s); setShowForm(true); }} title="Editar" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><Pencil className="h-4 w-4" /></button>
+                        <button onClick={() => handleLoadInvoice(s)} title="Cargar factura" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><Upload className="h-4 w-4" /></button>
+                        <button onClick={() => handleFilterInvoices(s)} title="Ver facturas" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><List className="h-4 w-4" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={setPage} />
       </Card>

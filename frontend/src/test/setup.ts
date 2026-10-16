@@ -4,6 +4,7 @@ import { afterEach, vi } from 'vitest';
 import { createElement, type AnchorHTMLAttributes } from 'react';
 
 afterEach(() => {
+  if (typeof window === 'undefined') return;
   cleanup();
   localStorage.clear();
 });
@@ -15,9 +16,12 @@ vi.mock('next/link', () => ({
 }));
 
 // jsdom no implementa estas APIs que usan algunos componentes.
-Element.prototype.scrollIntoView = vi.fn();
-window.matchMedia = window.matchMedia ?? ((query: string) => ({
-  matches: false, media: query, onchange: null,
-  addListener: vi.fn(), removeListener: vi.fn(),
-  addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn(),
-}));
+// (Los tests de API routes corren en entorno node, sin DOM.)
+if (typeof window !== 'undefined') {
+  Element.prototype.scrollIntoView = vi.fn();
+  window.matchMedia = window.matchMedia ?? ((query: string) => ({
+    matches: false, media: query, onchange: null,
+    addListener: vi.fn(), removeListener: vi.fn(),
+    addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn(),
+  }));
+}

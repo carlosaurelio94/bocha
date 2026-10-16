@@ -16,7 +16,7 @@ export function permissionsFor(...granted: `${Module}:${Action}`[]) {
 export const ALL_PERMISSIONS = [
   'dashboard:ver',
   'clientes:ver', 'clientes:crear', 'clientes:editar', 'clientes:eliminar',
-  'presupuestos:ver', 'presupuestos:crear', 'presupuestos:editar', 'presupuestos:eliminar',
+  'presupuestos:ver', 'presupuestos:crear', 'presupuestos:editar', 'presupuestos:eliminar', 'presupuestos:exportar',
   'proveedores:ver', 'facturas:ver', 'facturas:crear',
   'configuracion:ver', 'admin:ver',
 ] as const;

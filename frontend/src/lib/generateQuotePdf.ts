@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Quote } from '@/types';
 import { PRODUCT_NAME } from '@/lib/brand';
+import { formatDate } from './utils';
 
 /**
  * `companyName` es la empresa dueña del presupuesto: cada tenant tiene que ver
@@ -53,7 +54,7 @@ export function generateQuotePdf(quote: Quote, companyName: string = PRODUCT_NAM
   y += 6;
 
   const clientName = quote.client?.name ?? '—';
-  const dateStr    = new Date(quote.quote_date).toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' });
+  const dateStr    = formatDate(quote.quote_date, 'long');
 
   doc.setTextColor(...dark);
   doc.text(clientName, margin, y);

@@ -107,4 +107,51 @@ describe('Modal', () => {
     unmount();
     expect(document.body.style.overflow).toBe('');
   });
+
+  it('con Tab el foco no se escapa del diálogo', async () => {
+    render(
+      <>
+        <button>afuera</button>
+        <Modal open onClose={vi.fn()} title="T"><input aria-label="campo" /><button>Guardar</button></Modal>
+      </>
+    );
+    expect(screen.getByLabelText('campo')).toHaveFocus();
+    // Orden dentro del diálogo: X (cerrar), campo, Guardar → al pasar el último vuelve al primero
+    await userEvent.tab();
+    await userEvent.tab();
+    await userEvent.tab();
+    await userEvent.tab();
+    expect(screen.getByRole('button', { name: 'afuera' })).not.toHaveFocus();
+    expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true);
+
+    await userEvent.tab({ shift: true });
+    expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true);
+  });
+
+  it('al cerrar, el foco vuelve al botón que lo abrió', async () => {
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>Abrir</button>
+          <Modal open={open} onClose={() => setOpen(false)} title="T">contenido</Modal>
+        </>
+      );
+    }
+    render(<Harness />);
+    const opener = screen.getByRole('button', { name: 'Abrir' });
+    await userEvent.click(opener);
+    expect(screen.getByRole('dialog')).toHaveFocus(); // sin campos, el foco va al diálogo
+    await userEvent.keyboard('{Escape}');
+    expect(opener).toHaveFocus();
+  });
 });
+
+describe('FilterTabs accesible', () => {
+  it('marca la pestaña activa con aria-pressed', () => {
+    render(<FilterTabs value="a" onChange={vi.fn()} options={[{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }]} />);
+    expect(screen.getByRole('button', { name: 'A' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'B' })).toHaveAttribute('aria-pressed', 'false');
+  });
+});
+

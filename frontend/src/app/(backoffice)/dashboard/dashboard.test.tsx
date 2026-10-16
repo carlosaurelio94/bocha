@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderWithQuery } from '@/test/render';
 import { createSupabaseMock } from '@/test/supabaseMock';
 import { permissionsFor, ALL_PERMISSIONS } from '@/test/permissions';
@@ -10,6 +11,8 @@ vi.mock('@/lib/supabase', async () => {
   sb.mock = createSupabaseMock();
   return { supabase: sb.mock.client };
 });
+const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+vi.mock('sonner', () => ({ toast }));
 vi.mock('@/context/CompanyContext', () => ({ useCompany: () => ({ current: { name: 'Vivero Urbano' } }) }));
 const perms = vi.hoisted(() => ({ value: null as unknown }));
 vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => perms.value }));
@@ -97,5 +100,37 @@ describe('DashboardPage', () => {
     sb.mock.respond('clients', { error: new Error('down') });
     renderWithQuery(<DashboardPage />);
     expect(await screen.findByText(/No pudimos cargar las métricas/)).toBeInTheDocument();
+  });
+
+  it('el rango del mes usa fechas locales YYYY-MM-DD (no se corre un día por zona horaria)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 31, 22, 0)); // 31/10 22h en Caracas = 1/11 en UTC
+    try {
+      respond({ clients: 1, pending: 0, total: 1, recent: [], monthQuotes: [] });
+      renderWithQuery(<DashboardPage />);
+      await waitFor(() => expect(sb.mock.queries.length).toBeGreaterThan(1));
+      const monthQuery = sb.mock.queries.find((q) => q.table === 'quotes' && q.ops.some(([m]) => m === 'gte'))!;
+      expect(monthQuery.ops).toContainEqual(['gte', ['quote_date', '2026-10-01']]);
+      expect(monthQuery.ops).toContainEqual(['lte', ['quote_date', '2026-10-31']]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('Exportar CSV solo aparece con permiso de exportar', async () => {
+    perms.value = permissionsFor('dashboard:ver', 'presupuestos:ver');
+    respond({ clients: 1, pending: 0, total: 1, recent: [], monthQuotes: [] });
+    renderWithQuery(<DashboardPage />);
+    await screen.findByText('Clientes');
+    expect(screen.queryByRole('button', { name: /Exportar CSV/ })).toBeNull();
+  });
+
+  it('si la exportación falla avisa en vez de no hacer nada', async () => {
+    respond({ clients: 1, pending: 0, total: 1, recent: [], monthQuotes: [] });
+    renderWithQuery(<DashboardPage />);
+    await screen.findByText('Clientes');
+    sb.mock.respond('quotes', { error: new Error('down') });
+    await userEvent.click(screen.getByRole('button', { name: /Exportar CSV/ }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('No se pudo exportar. Probá de nuevo.'));
   });
 });

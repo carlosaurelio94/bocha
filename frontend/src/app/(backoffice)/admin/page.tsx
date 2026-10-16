@@ -5,6 +5,8 @@ import { ShieldCheck, Plus, X, Loader2, ChevronDown, UserPlus, Eye, EyeOff, KeyR
 import { supabase } from '@/lib/supabase';
 import { usePermissions } from '@/hooks/usePermissions';
 import type { Role, UserWithRoles } from '@/types/permissions';
+import { toast } from 'sonner';
+import { requestJson } from '@/lib/http';
 
 // ─── tipos crudos de Supabase ──────────────────────────────
 interface ProfileRow {
@@ -50,16 +52,14 @@ function CreateUserForm({ roles, onCreated }: CreateUserFormProps) {
     setSaving(true);
     setError('');
 
-    const res = await fetch('/api/admin/users', {
+    const res = await requestJson('/api/admin/users', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ username, password, roleId, displayName }),
-    });
+    }, 'Error al crear el usuario.');
 
-    const json = await res.json() as { ok?: boolean; error?: string };
-
-    if (!res.ok || !json.ok) {
-      setError(json.error ?? 'Error al crear el usuario.');
+    if (!res.ok) {
+      setError(res.error);
       setSaving(false);
       return;
     }
@@ -118,8 +118,8 @@ function CreateUserForm({ roles, onCreated }: CreateUserFormProps) {
               type={showPass ? 'text' : 'password'}
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="Mínimo 6 caracteres"
-              minLength={6}
+              placeholder="Mínimo 8 caracteres"
+              minLength={8}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-9 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-green-500"
             />
             <button
@@ -191,16 +191,15 @@ function ResetPasswordModal({ user, onClose }: ResetPasswordModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPass.length < 6)    { setError('Mínimo 6 caracteres.'); return; }
+    if (newPass.length < 8)    { setError('Mínimo 8 caracteres.'); return; }
     if (newPass !== confirm)   { setError('Las contraseñas no coinciden.'); return; }
     setSaving(true); setError('');
-    const res  = await fetch('/api/admin/users', {
+    const res = await requestJson('/api/admin/users', {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ userId: user.id, newPassword: newPass }),
-    });
-    const json = await res.json() as { ok?: boolean; error?: string };
-    if (!res.ok || !json.ok) { setError(json.error ?? 'Error al cambiar la contraseña.'); setSaving(false); return; }
+    }, 'Error al cambiar la contraseña.');
+    if (!res.ok) { setError(res.error); setSaving(false); return; }
     setOk(true); setSaving(false);
   };
 
@@ -229,7 +228,7 @@ function ResetPasswordModal({ user, onClose }: ResetPasswordModalProps) {
               <div className="relative">
                 <input
                   type={showPass ? 'text' : 'password'}
-                  required minLength={6}
+                  required minLength={8}
                   placeholder="Nueva contraseña"
                   value={newPass}
                   onChange={e => setNewPass(e.target.value)}
@@ -323,7 +322,10 @@ export default function AdminPage() {
   const deleteUser = async (userId: string) => {
     if (!confirm('¿Seguro que querés eliminar este usuario?')) return;
     setSaving(true);
-    await fetch(`/api/admin/users?userId=${userId}`, { method: 'DELETE' });
+    const res = await requestJson(`/api/admin/users?userId=${encodeURIComponent(userId)}`, { method: 'DELETE' },
+      'No se pudo eliminar el usuario.');
+    if (res.ok) toast.success('Usuario eliminado');
+    else toast.error(res.error);
     await fetchData();
     setSaving(false);
   };

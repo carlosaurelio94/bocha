@@ -146,4 +146,40 @@ describe('NewQuotePage', () => {
     setup();
     await waitFor(() => expect(screen.getAllByRole('combobox')[0]).toHaveValue('c2'));
   });
+
+  it('la fecha por defecto es la de hoy en hora local, también de noche', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 6, 21, 30)); // 21:30 en Caracas = 01:30 UTC del día siguiente
+    try {
+      setup();
+      expect(screen.getByLabelText(/Fecha/)).toHaveValue('2026-10-06');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('avisa antes de salir con cambios sin guardar', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    setup();
+    await userEvent.type(productInputs()[0], 'Ficus');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(nav.router.push).not.toHaveBeenCalled();
+
+    confirmSpy.mockReturnValue(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(nav.router.push).toHaveBeenCalledWith('/quotes');
+    confirmSpy.mockRestore();
+  });
+
+  it('sin cambios sale sin preguntar', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    setup();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(nav.router.push).toHaveBeenCalledWith('/quotes');
+    confirmSpy.mockRestore();
+  });
 });
+

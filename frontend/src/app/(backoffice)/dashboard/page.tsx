@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -10,12 +11,13 @@ import { supabase } from '@/lib/supabase';
 import { useCompany } from '@/context/CompanyContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button, LinkButton } from '@/components/ui/Button';
-import { Badge }  from '@/components/ui/Badge';
+import { Badge, badgeLabels } from '@/components/ui/Badge';
 import { Card }   from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton, ListSkeleton } from '@/components/ui/Skeleton';
-import { cn, formatCurrency, formatDate } from '@/lib/utils';
+import { cn, formatCurrency, formatDate, monthRange, toCsv, toLocalISODate } from '@/lib/utils';
+import { toast } from 'sonner';
 import type { Module, Action } from '@/types/permissions';
 import type { QuoteStatus } from '@/types';
 
@@ -33,9 +35,9 @@ interface DashboardMetrics {
 }
 
 async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
-  const now        = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+  // Fechas locales YYYY-MM-DD: con toISOString() el rango se corría un día
+  // en zonas horarias distintas a UTC.
+  const { start: monthStart, end: monthEnd } = monthRange();
 
   const [clientsRes, quotesMonthRes, pendingRes, recentRes, totalQuotesRes] = await Promise.all([
     supabase.from('clients').select('id', { count: 'exact', head: true }).eq('deleted', false),
@@ -75,29 +77,31 @@ async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
   };
 }
 
-async function exportMetricsToCSV() {
+async function exportMetricsToCSV(): Promise<boolean> {
   const { data, error } = await supabase
     .from('quotes')
     .select('quote_number, quote_date, total_amount, currency, status, client:clients(name)')
     .eq('deleted', false)
     .order('quote_date', { ascending: false });
 
-  if (error || !data) return;
+  if (error || !data) return false;
 
   type ExportRow = { quote_number: number; quote_date: string; total_amount: number; currency: string; status: string; client: { name: string } | { name: string }[] | null };
 
   const headers = ['N°', 'Cliente', 'Fecha', 'Total', 'Moneda', 'Estado'];
   const rows    = (data as ExportRow[]).map((q) => {
     const clientName = Array.isArray(q.client) ? (q.client[0]?.name ?? '') : (q.client?.name ?? '');
-    return [q.quote_number, clientName, q.quote_date, q.total_amount, q.currency, q.status];
+    const status = badgeLabels[q.status as keyof typeof badgeLabels] ?? q.status;
+    return [q.quote_number, clientName, q.quote_date, q.total_amount, q.currency, status];
   });
-  const csv     = [headers, ...rows].map((row) => row.map((v) => `"${v}"`).join(',')).join('\n');
+  const csv     = toCsv([headers, ...rows]);
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
-  const link = Object.assign(document.createElement('a'), { href: url, download: `presupuestos_${new Date().toISOString().slice(0, 10)}.csv` });
+  const link = Object.assign(document.createElement('a'), { href: url, download: `presupuestos_${toLocalISODate()}.csv` });
   link.click();
   URL.revokeObjectURL(url);
+  return true;
 }
 
 function greeting(): string {
@@ -230,6 +234,19 @@ export default function DashboardPage() {
   const monthRaw  = now.toLocaleDateString('es-VE', { month: 'long', year: 'numeric' });
   const monthName = monthRaw.charAt(0).toUpperCase() + monthRaw.slice(1);
   const { current: company } = useCompany();
+  const { hasPermission } = usePermissions();
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const ok = await exportMetricsToCSV();
+      if (ok) toast.success('CSV descargado');
+      else toast.error('No se pudo exportar. Probá de nuevo.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const { data: metrics, isLoading, isError } = useQuery({
     queryKey: ['dashboard', 'metrics'],
@@ -244,12 +261,12 @@ export default function DashboardPage() {
       <PageHeader
         title={greeting()}
         description={<>Resumen de <span className="font-medium text-gray-700 dark:text-slate-300">{company?.name ?? 'tu empresa'}</span> · {monthName}</>}
-        actions={
-          <Button variant="secondary" onClick={exportMetricsToCSV}>
-            <Download className="h-4 w-4" />
+        actions={hasPermission('presupuestos', 'exportar') && (
+          <Button variant="secondary" onClick={handleExport} loading={exporting}>
+            {!exporting && <Download className="h-4 w-4" />}
             Exportar CSV
           </Button>
-        }
+        )}
       />
 
       <QuickActions />

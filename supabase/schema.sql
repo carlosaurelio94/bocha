@@ -669,10 +669,14 @@ BEGIN
     RAISE EXCEPTION 'el slug % ya está en uso', p_slug;
   END IF;
 
-  SELECT id INTO v_plan_id FROM public.plans WHERE slug = COALESCE(p_plan_slug, 'free');
+  -- El alta self-service SIEMPRE arranca en 'free'. p_plan_slug se mantiene
+  -- por compatibilidad pero se ignora: si no, cualquiera podía crearse una
+  -- empresa en un plan pago llamando a la RPC con 'enterprise'.
+  -- Los cambios de plan los hace el super-admin desde /admin/companies.
+  SELECT id INTO v_plan_id FROM public.plans WHERE slug = 'free';
 
   INSERT INTO public.companies (slug, name, plan, plan_id)
-  VALUES (lower(p_slug), p_company_name, COALESCE(p_plan_slug, 'free'), v_plan_id)
+  VALUES (lower(p_slug), p_company_name, 'free', v_plan_id)
   RETURNING id INTO v_company_id;
 
   SELECT id INTO v_role_id FROM public.roles WHERE name = 'administrador';

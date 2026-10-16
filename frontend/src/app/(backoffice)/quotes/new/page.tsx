@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal }  from '@/components/ui/Modal';
 import { Card }   from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, toLocalISODate } from '@/lib/utils';
 import { parseItemsText, type ParsedItem } from '@/lib/parseItems';
 
 // ─── Modal de importación ─────────────────────────────────────────────────────
@@ -153,12 +153,12 @@ function NewQuoteForm() {
   const { data: infoList }    = useQuoteInformation();
   const createMutation        = useCreateQuote();
 
-  const { register, control, handleSubmit, watch, setValue, setFocus, formState: { errors } } = useForm<QuoteFormValues>({
+  const { register, control, handleSubmit, watch, setValue, setFocus, formState: { errors, isDirty } } = useForm<QuoteFormValues>({
     resolver: zodResolver(quoteSchema),
     defaultValues: {
       client_id:    '',
       quote_number: 1,
-      quote_date:   new Date().toISOString().slice(0, 10),
+      quote_date:   toLocalISODate(),
       currency:     '$',
       status:       'draft',
       items:        [emptyItem],
@@ -168,6 +168,7 @@ function NewQuoteForm() {
   const { fields, append, remove, replace } = useFieldArray({ control, name: 'items' });
   const [importOpen, setImportOpen]         = useState(false);
   const [newClientOpen, setNewClientOpen]   = useState(false);
+  const [saved, setSaved]                   = useState(false);
 
   // /quotes/new?cliente=<id> (desde la ficha del cliente) lo deja preseleccionado
   const [pendingClientId, setPendingClientId] = useState<string | null>(searchParams.get('cliente'));
@@ -222,6 +223,7 @@ function NewQuoteForm() {
         total_amount: grandTotal,
         item_count:   values.items.length,
       });
+      setSaved(true);
       router.push(created?.id ? `/quotes/${created.id}` : '/quotes');
     } catch {
       // El hook ya mostró el toast de error; no perdemos lo cargado.
@@ -229,6 +231,21 @@ function NewQuoteForm() {
   };
 
   const hasClients = (clientsData?.data.length ?? 0) > 0;
+
+  // Avisar antes de perder lo cargado (cerrar pestaña, recargar).
+  // (`saved` y no isSubmitSuccessful: si el guardado falla, RHF igual lo marca como "exitoso")
+  const hasUnsavedChanges = isDirty && !saved;
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  const handleCancel = () => {
+    if (hasUnsavedChanges && !window.confirm('Tenés cambios sin guardar. ¿Salir igual?')) return;
+    router.push('/quotes');
+  };
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6 pb-28">
@@ -382,7 +399,7 @@ function NewQuoteForm() {
             <p className="text-xl font-bold tracking-tight text-gray-900 sm:text-2xl dark:text-slate-100">{formatCurrency(grandTotal, currency)}</p>
           </div>
           <div className="flex gap-2">
-            <Button type="button" variant="ghost" className="hidden sm:inline-flex" onClick={() => router.push('/quotes')} disabled={createMutation.isPending}>
+            <Button type="button" variant="ghost" className="hidden sm:inline-flex" onClick={handleCancel} disabled={createMutation.isPending}>
               Cancelar
             </Button>
             <Button type="submit" form="quote-form" size="lg" loading={createMutation.isPending}>

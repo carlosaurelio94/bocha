@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CreditCard, Check, Loader2, ExternalLink } from 'lucide-react';
+import { Check, Loader2, ExternalLink } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useCompany, type Plan } from '@/context/CompanyContext';
 import { CONTACT_EMAIL } from '@/lib/brand';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 export default function BillingPage() {
   const { current: company, currentPlan, loading } = useCompany();
@@ -43,15 +44,9 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-6">
 
-      <div className="flex items-center gap-3">
-        <CreditCard className="h-7 w-7 text-green-600" />
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Plan y facturación</h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400">Suscripción de {company?.name ?? 'tu empresa'}</p>
-        </div>
-      </div>
+      <PageHeader title="Plan y facturación" description={`Suscripción de ${company?.name ?? 'tu empresa'}`} />
 
       {/* Plan actual */}
       <section className="rounded-xl border border-gray-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-900">

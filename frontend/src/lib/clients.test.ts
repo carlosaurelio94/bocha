@@ -35,6 +35,13 @@ describe('getClients', () => {
     );
   });
 
+  it('una coma o paréntesis en la búsqueda no rompe el filtro .or()', async () => {
+    await getClients({ page: 1, pageSize: 10, search: 'Jardines, C.A. (sucursal)' });
+    expect(sb.mock.lastOps('clients')).toContainEqual(
+      ['or', ['name.ilike.%Jardines C.A. sucursal%,rif.ilike.%Jardines C.A. sucursal%,phone.ilike.%Jardines C.A. sucursal%']]
+    );
+  });
+
   it('filtra por estado solo si se pide', async () => {
     await getClients({ page: 1, pageSize: 10 });
     expect(sb.mock.lastOps('clients').some(([m, a]) => m === 'eq' && a[0] === 'client_status')).toBe(false);

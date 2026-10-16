@@ -43,6 +43,28 @@ describe('getQuotes', () => {
     sb.mock.respond('quotes', { error: new Error('down') });
     await expect(getQuotes({ page: 1, pageSize: 10 })).rejects.toThrow('down');
   });
+
+  it('al buscar por cliente usa !inner para que el filtro descarte presupuestos', async () => {
+    await getQuotes({ page: 1, pageSize: 10, search: 'ana' });
+    const select = String(sb.mock.lastOps('quotes').find(([m]) => m === 'select')?.[1][0]);
+    expect(select).toContain('client:clients!inner(');
+  });
+
+  it('sin búsqueda no fuerza el inner join (presupuestos sin cliente siguen apareciendo)', async () => {
+    await getQuotes({ page: 1, pageSize: 10 });
+    const select = String(sb.mock.lastOps('quotes').find(([m]) => m === 'select')?.[1][0]);
+    expect(select).not.toContain('!inner');
+  });
+
+  it('limpia comodines y caracteres especiales de la búsqueda', async () => {
+    await getQuotes({ page: 1, pageSize: 10, search: '100%, (ana)' });
+    expect(sb.mock.lastOps('quotes')).toContainEqual(['ilike', ['clients.name', '%100 ana%']]);
+  });
+
+  it('una búsqueda solo con caracteres especiales no filtra', async () => {
+    await getQuotes({ page: 1, pageSize: 10, search: '%,' });
+    expect(sb.mock.lastOps('quotes').some(([m]) => m === 'ilike')).toBe(false);
+  });
 });
 
 describe('createQuote', () => {
@@ -67,10 +89,15 @@ describe('createQuote', () => {
     expect(sb.mock.queries.some((q) => q.table === 'quote_items')).toBe(false);
   });
 
-  it('propaga el error al insertar ítems', async () => {
+  it('si fallan los ítems, da de baja la cabecera (no deja presupuestos vacíos) y propaga el error', async () => {
     sb.mock.respond('quotes', { data: { id: 'q1' } });
     sb.mock.respond('quote_items', { error: new Error('items') });
+
     await expect(createQuote(dto)).rejects.toThrow('items');
+
+    const rollback = sb.mock.lastOps('quotes');
+    expect(rollback[0]).toEqual(['update', [{ deleted: true, updated_by: 'device_test' }]]);
+    expect(rollback).toContainEqual(['eq', ['id', 'q1']]);
   });
 
   it('no inserta ítems si la lista viene vacía', async () => {

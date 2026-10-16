@@ -538,61 +538,62 @@ function InvoicesContent() {
 
       {/* Tabla */}
       <Card flush>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 dark:border-slate-800">
-                {['Razón social', 'Nombre fantasía', 'Nro. Comprobante', 'Monto', 'Estado', 'Vencimiento', 'Fecha a pagar', 'Fecha de pago', ''].map(h => (
-                  <th key={h} className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-              {loading ? (
-                <tr><td colSpan={9} className="py-12 text-center"><Loader2 className="h-6 w-6 animate-spin text-gray-400 mx-auto" /></td></tr>
-              ) : invoices.length === 0 ? (
-                <tr><td colSpan={9}>
-                  <EmptyState
-                    icon={Receipt}
-                    title={search ? 'Sin resultados' : 'No hay comprobantes cargados'}
-                    description={search ? 'Probá con otro número.' : 'Cargá la primera factura de un proveedor para seguir sus vencimientos y pagos.'}
-                    action={!search && <Button onClick={() => setShowForm(true)}><Plus className="h-4 w-4" />Cargar comprobante</Button>}
-                  />
-                </td></tr>
-              ) : invoices.map(inv => {
-                const s = Array.isArray(inv.supplier) ? inv.supplier[0] : inv.supplier;
-                const st = statuses.find(x => x.id === inv.status_id);
-                const isPending = inv.status_id === 4 || inv.status_id === 2;
-                return (
-                  <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
-                    <td className="px-3 py-3 font-medium text-gray-900 dark:text-slate-100 whitespace-nowrap">{(s as Supplier)?.legal_name ?? '—'}</td>
-                    <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">{(s as Supplier)?.fantasy_name ?? '—'}</td>
-                    <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">
-                      {inv.invoice_number} {inv.installments > 1 ? `(1/${inv.installments})` : '(1/1)'}
-                    </td>
-                    <td className="px-3 py-3 text-gray-800 dark:text-slate-200 whitespace-nowrap font-medium">{fmt(inv.total_amount, inv.currency)}</td>
-                    <td className="px-3 py-3">{st ? <StatusBadge statusId={st.id} statusName={st.name} /> : '—'}</td>
-                    <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">{fmtDate(inv.due_date)}</td>
-                    <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">{fmtDate(inv.scheduled_payment_date)}</td>
-                    <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">{fmtDate(inv.payment_date)}</td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setDetail(inv)} title="Información" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><Info className="h-4 w-4" /></button>
-                        <button title="Comprobantes adjuntos" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><FileStack className="h-4 w-4" /></button>
-                        {isPending && (
-                          <>
-                            <button onClick={() => setDetail(inv)} title="Rechazar" className="rounded p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"><XCircle className="h-4 w-4" /></button>
-                            <button onClick={() => setDetail(inv)} title="Aprobar" className="rounded p-1.5 text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20"><CheckCircle className="h-4 w-4" /></button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        {/* Vacío: fuera de la tabla para que en mobile no quede cortado por el scroll horizontal */}
+        {!loading && invoices.length === 0 ? (
+          <EmptyState
+            icon={Receipt}
+            title={search ? 'Sin resultados' : 'No hay comprobantes cargados'}
+            description={search ? 'Probá con otro número.' : 'Cargá la primera factura de un proveedor para seguir sus vencimientos y pagos.'}
+            action={!search && <Button onClick={() => setShowForm(true)}><Plus className="h-4 w-4" />Cargar comprobante</Button>}
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-slate-800">
+                  {['Razón social', 'Nombre fantasía', 'Nro. Comprobante', 'Monto', 'Estado', 'Vencimiento', 'Fecha a pagar', 'Fecha de pago', ''].map(h => (
+                    <th key={h} className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                {loading ? (
+                  <tr><td colSpan={9} className="py-12 text-center"><Loader2 className="h-6 w-6 animate-spin text-gray-400 mx-auto" /></td></tr>
+                ) : invoices.map(inv => {
+                  const s = Array.isArray(inv.supplier) ? inv.supplier[0] : inv.supplier;
+                  const st = statuses.find(x => x.id === inv.status_id);
+                  const isPending = inv.status_id === 4 || inv.status_id === 2;
+                  return (
+                    <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
+                      <td className="px-3 py-3 font-medium text-gray-900 dark:text-slate-100 whitespace-nowrap">{(s as Supplier)?.legal_name ?? '—'}</td>
+                      <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">{(s as Supplier)?.fantasy_name ?? '—'}</td>
+                      <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">
+                        {inv.invoice_number} {inv.installments > 1 ? `(1/${inv.installments})` : '(1/1)'}
+                      </td>
+                      <td className="px-3 py-3 text-gray-800 dark:text-slate-200 whitespace-nowrap font-medium">{fmt(inv.total_amount, inv.currency)}</td>
+                      <td className="px-3 py-3">{st ? <StatusBadge statusId={st.id} statusName={st.name} /> : '—'}</td>
+                      <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">{fmtDate(inv.due_date)}</td>
+                      <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">{fmtDate(inv.scheduled_payment_date)}</td>
+                      <td className="px-3 py-3 text-gray-600 dark:text-slate-400 whitespace-nowrap">{fmtDate(inv.payment_date)}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setDetail(inv)} title="Información" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><Info className="h-4 w-4" /></button>
+                          <button title="Comprobantes adjuntos" className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"><FileStack className="h-4 w-4" /></button>
+                          {isPending && (
+                            <>
+                              <button onClick={() => setDetail(inv)} title="Rechazar" className="rounded p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"><XCircle className="h-4 w-4" /></button>
+                              <button onClick={() => setDetail(inv)} title="Aprobar" className="rounded p-1.5 text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20"><CheckCircle className="h-4 w-4" /></button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={setPage} />
       </Card>

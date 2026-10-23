@@ -11,11 +11,11 @@
     <relativePath/>
   </parent>
 
-  <groupId>com.viverourbano</groupId>
+  <groupId>com.bocha</groupId>
   <artifactId>backoffice</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <name>backoffice</name>
-  <description>Backoffice API - Vivero Urbano</description>
+  <description>Backoffice API - Bocha</description>
 
   <properties>
     <java.version>21</java.version>

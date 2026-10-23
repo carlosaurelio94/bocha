@@ -13,7 +13,7 @@ vi.mock('@/lib/supabase', async () => {
 });
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({ toast }));
-vi.mock('@/context/CompanyContext', () => ({ useCompany: () => ({ current: { name: 'Vivero Urbano' } }) }));
+vi.mock('@/context/CompanyContext', () => ({ useCompany: () => ({ current: { name: 'Jardines del Sur' } }) }));
 const perms = vi.hoisted(() => ({ value: null as unknown }));
 vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => perms.value }));
 

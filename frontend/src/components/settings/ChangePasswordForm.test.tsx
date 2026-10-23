@@ -16,7 +16,7 @@ import { ChangePasswordForm } from './ChangePasswordForm';
 beforeEach(() => {
   Object.values(auth).forEach((f) => f.mockReset());
   toast.success.mockReset(); toast.error.mockReset();
-  auth.getUser.mockResolvedValue({ data: { user: { email: 'carlos@vivero.internal' } } });
+  auth.getUser.mockResolvedValue({ data: { user: { email: 'carlos@acme.internal' } } });
   auth.signInWithPassword.mockResolvedValue({ error: null });
   auth.updateUser.mockResolvedValue({ error: null });
 });
@@ -34,7 +34,7 @@ describe('ChangePasswordForm', () => {
     await fill('vieja-123', 'nueva-12345');
 
     await waitFor(() => expect(auth.updateUser).toHaveBeenCalledWith({ password: 'nueva-12345' }));
-    expect(auth.signInWithPassword).toHaveBeenCalledWith({ email: 'carlos@vivero.internal', password: 'vieja-123' });
+    expect(auth.signInWithPassword).toHaveBeenCalledWith({ email: 'carlos@acme.internal', password: 'vieja-123' });
     expect(auth.signInWithPassword.mock.invocationCallOrder[0]).toBeLessThan(auth.updateUser.mock.invocationCallOrder[0]);
     expect(toast.success).toHaveBeenCalled();
     expect(screen.getByLabelText(/Contraseña actual/)).toHaveValue('');

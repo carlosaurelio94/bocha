@@ -48,8 +48,15 @@ export function createSupabaseMock() {
     onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
   };
 
+  /** RPCs: respuesta configurable por nombre de función. */
+  const rpcResponses = new Map<string, QueryResult>();
+  const rpc = vi.fn(async (fn: string) => rpcResponses.get(fn) ?? { data: null, error: null });
+
   return {
-    client: { from, auth },
+    client: { from, auth, rpc },
+    rpcRespond(fn: string, result: Partial<QueryResult>) {
+      rpcResponses.set(fn, { data: null, error: null, ...result });
+    },
     queries,
     /** Encola la respuesta para la próxima consulta a `table`. */
     respond(table: string, result: Partial<QueryResult>) {
@@ -64,6 +71,8 @@ export function createSupabaseMock() {
     reset() {
       queries.length = 0;
       queues.clear();
+      rpcResponses.clear();
+      rpc.mockClear();
       from.mockClear();
     },
   };

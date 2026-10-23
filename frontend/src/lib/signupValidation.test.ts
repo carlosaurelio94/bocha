@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { validateSignup, slugify, normalizeUsername } from './signupValidation';
 
-const valid = { companyName: 'Vivero Urbano', companySlug: 'vivero-urbano', username: 'carlos_r', password: '12345678' };
+const valid = { companyName: 'Jardines del Sur', companySlug: 'jardines-del-sur', username: 'carlos_r', password: '12345678' };
 
 describe('validateSignup', () => {
   it('acepta datos válidos', () => {
@@ -11,9 +11,9 @@ describe('validateSignup', () => {
   it.each([
     ['companyName', { companyName: ' a ' }],
     ['companySlug', { companySlug: 'ab' }],
-    ['companySlug', { companySlug: '-vivero' }],
-    ['companySlug', { companySlug: 'vivero-' }],
-    ['companySlug', { companySlug: 'Vivero' }],
+    ['companySlug', { companySlug: '-acme' }],
+    ['companySlug', { companySlug: 'acme-' }],
+    ['companySlug', { companySlug: 'Acme' }],
     ['companySlug', { companySlug: 'a'.repeat(33) }],
     ['username', { username: 'ca' }],
     ['username', { username: 'carlos.r' }],
@@ -31,7 +31,7 @@ describe('validateSignup', () => {
 
 describe('slugify', () => {
   it.each([
-    ['Vivero Urbano', 'vivero-urbano'],
+    ['Jardines del Sur', 'jardines-del-sur'],
     ['Jardinería Ñandú S.A.', 'jardineria-nandu-s-a'],
     ['  --Hola  Mundo--  ', 'hola-mundo'],
   ])('"%s" → "%s"', (input, out) => {
@@ -45,7 +45,7 @@ describe('slugify', () => {
   });
 
   it('lo que genera siempre pasa la validación (si tiene largo suficiente)', () => {
-    ['Vivero Urbano', 'Ñandú & Cía.', 'ACME 2026'].forEach((name) => {
+    ['Jardines del Sur', 'Ñandú & Cía.', 'ACME 2026'].forEach((name) => {
       expect(validateSignup({ ...valid, companySlug: slugify(name) }).companySlug).toBeUndefined();
     });
   });

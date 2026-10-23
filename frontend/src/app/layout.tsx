@@ -6,7 +6,12 @@ import { PRODUCT_NAME, PRODUCT_TAGLINE } from '@/lib/brand';
 
 const inter = Inter({ subsets: ['latin'] });
 
-const SITE_URL = 'https://boviverourbano.vercel.app';
+// En Vercel se toma el dominio de producción del proyecto; NEXT_PUBLIC_SITE_URL lo pisa.
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : 'https://bocha.vercel.app');
 const DESCRIPTION =
   'Sistema de gestión de clientes, presupuestos, proveedores y facturas';
 

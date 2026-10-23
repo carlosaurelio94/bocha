@@ -18,7 +18,7 @@ afterEach(() => vi.unstubAllGlobals());
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
 
 async function fillValid() {
-  await userEvent.type(screen.getByLabelText(/Nombre de la empresa/), 'Vivero Ñandú');
+  await userEvent.type(screen.getByLabelText(/Nombre de la empresa/), 'Jardín Ñandú');
   await userEvent.type(screen.getByLabelText(/Usuario para entrar/), 'Carlos R');
   await userEvent.type(screen.getByLabelText(/^Contraseña/), '12345678');
 }
@@ -27,19 +27,19 @@ describe('RegisterPage', () => {
   it('genera la dirección de acceso desde el nombre y normaliza el usuario', async () => {
     render(<RegisterPage />);
     await fillValid();
-    expect(screen.getByLabelText(/Dirección de acceso/)).toHaveValue('vivero-nandu');
+    expect(screen.getByLabelText(/Dirección de acceso/)).toHaveValue('jardin-nandu');
     expect(screen.getByLabelText(/Usuario para entrar/)).toHaveValue('carlos_r');
-    expect(screen.getByText(/login\?company=vivero-nandu/)).toBeInTheDocument();
+    expect(screen.getByText(/login\?company=jardin-nandu/)).toBeInTheDocument();
   });
 
   it('si editás la dirección a mano, cambiar el nombre ya no la pisa', async () => {
     render(<RegisterPage />);
-    await userEvent.type(screen.getByLabelText(/Nombre de la empresa/), 'Vivero');
+    await userEvent.type(screen.getByLabelText(/Nombre de la empresa/), 'Empresa');
     const slug = screen.getByLabelText(/Dirección de acceso/);
     await userEvent.clear(slug);
-    await userEvent.type(slug, 'mi-vivero');
+    await userEvent.type(slug, 'mi-empresa');
     await userEvent.type(screen.getByLabelText(/Nombre de la empresa/), ' Urbano');
-    expect(slug).toHaveValue('mi-vivero');
+    expect(slug).toHaveValue('mi-empresa');
   });
 
   it('valida antes de enviar y no llama a la API con datos inválidos', async () => {
@@ -73,7 +73,7 @@ describe('RegisterPage', () => {
   });
 
   it('no manda plan en el body', async () => {
-    fetchMock.mockResolvedValue(json(200, { ok: true, email: 'carlos_r@vivero-nandu.internal' }));
+    fetchMock.mockResolvedValue(json(200, { ok: true, email: 'carlos_r@jardin-nandu.internal' }));
     render(<RegisterPage />);
     await fillValid();
     await userEvent.click(screen.getByRole('button', { name: 'Crear mi backoffice' }));
@@ -82,12 +82,12 @@ describe('RegisterPage', () => {
   });
 
   it('si el auto-login falla, muestra el éxito y cómo entrar', async () => {
-    fetchMock.mockResolvedValue(json(200, { ok: true, email: 'carlos_r@vivero-nandu.internal' }));
+    fetchMock.mockResolvedValue(json(200, { ok: true, email: 'carlos_r@jardin-nandu.internal' }));
     render(<RegisterPage />);
     await fillValid();
     await userEvent.click(screen.getByRole('button', { name: 'Crear mi backoffice' }));
 
     expect(await screen.findByText('¡Empresa creada!')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Ir a iniciar sesión/ })).toHaveAttribute('href', '/login?company=vivero-nandu');
+    expect(screen.getByRole('link', { name: /Ir a iniciar sesión/ })).toHaveAttribute('href', '/login?company=jardin-nandu');
   });
 });

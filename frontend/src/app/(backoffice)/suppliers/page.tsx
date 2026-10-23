@@ -5,7 +5,7 @@ import {
   Building2, Plus, Eye, Upload, List,
   Loader2, X, Pencil,
   Phone, Mail, Bell, BellOff, Landmark,
-  Trash2
+  Trash2, FileUp
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { friendlyError } from '@/lib/errors';
@@ -18,6 +18,8 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { Pagination }  from '@/components/ui/Pagination';
 import { EmptyState }  from '@/components/ui/EmptyState';
 import { Avatar }      from '@/components/ui/Avatar';
+import { CsvImportModal } from '@/components/csv/CsvImportModal';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const PAGE_SIZE = 10;
 
@@ -305,6 +307,9 @@ export default function SuppliersPage() {
   const [search,    setSearch]    = useState('');
   const [loading,   setLoading]   = useState(true);
   const [showForm,  setShowForm]  = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const { hasPermission } = usePermissions();
+  const canCreate = hasPermission('proveedores', 'crear');
   const [editing,   setEditing]   = useState<Supplier | null>(null);
   const [detail,    setDetail]    = useState<Supplier | null>(null);
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -340,9 +345,16 @@ export default function SuppliersPage() {
         title="Proveedores"
         description={`${total} ${total === 1 ? 'proveedor' : 'proveedores'}`}
         actions={
-          <Button onClick={() => { setEditing(null); setShowForm(true); }}>
-            <Plus className="h-4 w-4" /> Nuevo proveedor
-          </Button>
+          <>
+            {canCreate && (
+              <Button variant="secondary" onClick={() => setImportOpen(true)}>
+                <FileUp className="h-4 w-4" /> Importar CSV
+              </Button>
+            )}
+            <Button onClick={() => { setEditing(null); setShowForm(true); }}>
+              <Plus className="h-4 w-4" /> Nuevo proveedor
+            </Button>
+          </>
         }
       />
 
@@ -426,6 +438,7 @@ export default function SuppliersPage() {
       </Card>
 
       {/* Modales */}
+      <CsvImportModal entity="suppliers" open={importOpen} onClose={() => setImportOpen(false)} onImported={() => { setPage(1); void load(1, search); }} />
       {showForm && (
         <SupplierFormModal
           supplier={editing}

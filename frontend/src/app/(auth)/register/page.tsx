@@ -108,13 +108,13 @@ export default function RegisterPage() {
             <Section step={1} title="Tu empresa">
               <Input
                 label="Nombre de la empresa" id="reg-company" required autoFocus
-                value={companyName} placeholder="Vivero Urbano"
+                value={companyName} placeholder="Mi Empresa"
                 onChange={(e) => { handleCompanyName(e.target.value); clearError('companyName'); }}
                 error={errors.companyName}
               />
               <Input
                 label="Dirección de acceso" id="reg-slug" required
-                value={companySlug} placeholder="vivero-urbano"
+                value={companySlug} placeholder="mi-empresa"
                 onChange={(e) => {
                   setSlugTouched(true);
                   setCompanySlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 32));

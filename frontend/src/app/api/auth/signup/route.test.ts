@@ -25,7 +25,7 @@ vi.mock('@supabase/supabase-js', () => ({
 
 import { POST } from './route';
 
-const valid = { companyName: 'Vivero Urbano', companySlug: 'vivero-urbano', username: 'carlos', password: '12345678' };
+const valid = { companyName: 'Jardines del Sur', companySlug: 'jardines-del-sur', username: 'carlos', password: '12345678' };
 const post = (body: unknown) =>
   POST(new Request('http://localhost/api/auth/signup', {
     method: 'POST',
@@ -49,7 +49,7 @@ describe('POST /api/auth/signup', () => {
   it('crea la empresa y devuelve el email interno', async () => {
     const res = await post(valid);
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ ok: true, companyId: 'company-1', email: 'carlos@vivero-urbano.internal' });
+    expect(await res.json()).toMatchObject({ ok: true, companyId: 'company-1', email: 'carlos@jardines-del-sur.internal' });
   });
 
   it('SEGURIDAD: siempre crea la empresa en plan free aunque pidan otro', async () => {

@@ -151,7 +151,7 @@ const faqs = [
 ];
 
 const tenantCards = [
-  { name: 'Vivero Urbano', color: 'bg-green-600', detail: 'sus clientes · sus presupuestos' },
+  { name: 'Ferretería Central', color: 'bg-green-600', detail: 'sus clientes · sus presupuestos' },
   { name: 'Tu empresa', color: 'bg-emerald-500', detail: 'tus clientes · tus presupuestos' },
   { name: 'Otra empresa', color: 'bg-teal-600', detail: 'sus clientes · sus presupuestos' },
 ];
@@ -211,7 +211,7 @@ export default function LandingPage() {
           <div className="relative mx-auto max-w-6xl px-4 py-20 text-center sm:px-6 sm:py-28">
             <span className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-700 dark:border-green-900 dark:bg-green-950/50 dark:text-green-400">
               <Leaf className="h-3.5 w-3.5" />
-              En producción con Vivero Urbano
+              Ya en producción con empresas reales
             </span>
 
             <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl">

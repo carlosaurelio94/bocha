@@ -1,10 +1,10 @@
 spring:
   application:
-    name: backoffice-vivero-urbano
+    name: backoffice-bocha
 
   datasource:
     # Conecta a la base de datos PostgreSQL de Supabase (o local vía Docker)
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/vivero_urbano}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/bocha}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver

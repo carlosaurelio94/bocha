@@ -21,7 +21,7 @@ vi.mock('@supabase/ssr', () => ({
         select: () => chain, eq: () => chain,
         single: async () => table === 'profiles'
           ? { data: { current_company_id: 'company-1' } }
-          : { data: { role: { name: sb.role }, company: { slug: 'vivero' } } },
+          : { data: { role: { name: sb.role }, company: { slug: 'acme' } } },
       };
       return chain;
     },
@@ -80,7 +80,7 @@ describe('POST — crear usuario', () => {
     const res = await POST(req('POST', valid));
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ ok: true, username: 'maria_lopez' });
-    expect(sb.createUser).toHaveBeenCalledWith(expect.objectContaining({ email: 'maria_lopez@vivero.internal' }));
+    expect(sb.createUser).toHaveBeenCalledWith(expect.objectContaining({ email: 'maria_lopez@acme.internal' }));
   });
 
   it('rechaza contraseñas de menos de 8 caracteres', async () => {

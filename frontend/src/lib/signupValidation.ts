@@ -32,7 +32,7 @@ export function validateSignup(input: SignupInput): SignupErrors {
   return errors;
 }
 
-/** "Mi Vivero Ñandú S.A." → "mi-vivero-nandu-s-a" */
+/** "Mi Jardín Ñandú S.A." → "mi-jardin-nandu-s-a" */
 export function slugify(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32).replace(/-+$/g, '');

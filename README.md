@@ -2,12 +2,11 @@
 
 Multi-company SaaS back-office: clients, quotes, suppliers and invoices.
 Each company (tenant) sees only its own data, enforced through Row Level Security.
-The pilot company is Vivero Urbano.
 
 The product name lives in `frontend/src/lib/brand.ts` — that single file is all
 you need to touch to rename it across the whole app.
 
-**Live:** https://boviverourbano.vercel.app
+**Live:** https://bocha.vercel.app
 
 ## Architecture
 
@@ -206,7 +205,7 @@ Go to **GitHub → repo → Settings → Secrets and variables → Actions**
 
 ## API
 
-Swagger UI: `https://backoffice-vivero-urbano.onrender.com/swagger-ui.html`
+Swagger UI: `https://backoffice-bocha-api.onrender.com/swagger-ui.html`
 
 Main endpoints under `/api/v1/`:
 

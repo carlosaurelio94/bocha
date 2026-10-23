@@ -13,7 +13,7 @@ vi.mock('@/lib/supabase', async () => {
   return { supabase: sb.mock.client };
 });
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock('@/context/CompanyContext', () => ({ useCompany: () => ({ current: { name: 'Vivero Urbano' } }) }));
+vi.mock('@/context/CompanyContext', () => ({ useCompany: () => ({ current: { name: 'Jardines del Sur' } }) }));
 const pdf = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/generateQuotePdf', () => ({ generateQuotePdf: pdf }));
 const perms = vi.hoisted(() => ({ value: null as unknown }));
@@ -83,7 +83,7 @@ describe('QuoteDetailPage', () => {
   it('descarga el PDF con el nombre de la empresa', async () => {
     await renderDetail('draft');
     await userEvent.click(screen.getByRole('button', { name: /Descargar PDF/ }));
-    expect(pdf).toHaveBeenCalledWith(expect.objectContaining({ id: 'q1' }), 'Vivero Urbano');
+    expect(pdf).toHaveBeenCalledWith(expect.objectContaining({ id: 'q1' }), 'Jardines del Sur');
   });
 
   it('muestra un estado claro si el presupuesto no existe', async () => {

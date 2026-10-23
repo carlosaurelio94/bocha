@@ -3,10 +3,12 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Trash2, ChevronDown, FileText } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, FileText, FileUp } from 'lucide-react';
 import { useQuotes, useUpdateQuoteStatus, useDeleteQuote } from '@/hooks/useQuotes';
 import { useDebounce } from '@/hooks/useDebounce';
 import { usePermissions } from '@/hooks/usePermissions';
+import { CsvImportModal } from '@/components/csv/CsvImportModal';
+import { useUrlTrigger } from '@/hooks/useUrlTrigger';
 import { Badge }       from '@/components/ui/Badge';
 import { Button, LinkButton } from '@/components/ui/Button';
 import { Card }        from '@/components/ui/Card';
@@ -104,6 +106,9 @@ function QuotesContent() {
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(isStatus(initialStatus) ? initialStatus : '');
   const [deleteTarget, setDeleteTarget] = useState<Quote | null>(null);
+  const [importOpen, setImportOpen]     = useState(false);
+  // /quotes?importar=1 (desde Ctrl+K) abre el importador
+  useUrlTrigger('importar', '/quotes', () => setImportOpen(true));
   const debouncedSearch = useDebounce(search.trim());
 
   const { data, isLoading, isError, isFetching } = useQuotes({
@@ -129,10 +134,16 @@ function QuotesContent() {
         title="Presupuestos"
         description={data ? `${data.total} ${data.total === 1 ? 'presupuesto' : 'presupuestos'}${filtering ? ' con este filtro' : ''}` : 'Historial y seguimiento'}
         actions={canCreate && (
-          <LinkButton href="/quotes/new">
-            <Plus className="h-4 w-4" />
-            Nuevo presupuesto
-          </LinkButton>
+          <>
+            <Button variant="secondary" onClick={() => setImportOpen(true)}>
+              <FileUp className="h-4 w-4" />
+              Importar CSV
+            </Button>
+            <LinkButton href="/quotes/new">
+              <Plus className="h-4 w-4" />
+              Nuevo presupuesto
+            </LinkButton>
+          </>
         )}
       />
 
@@ -236,6 +247,7 @@ function QuotesContent() {
       </Card>
 
       <DeleteModal quote={deleteTarget} onClose={() => setDeleteTarget(null)} />
+      <CsvImportModal entity="quotes" open={importOpen} onClose={() => setImportOpen(false)} />
     </div>
   );
 }

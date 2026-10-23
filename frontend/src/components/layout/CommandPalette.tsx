@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { CornerDownLeft, FilePlus2, Search, User, UserPlus } from 'lucide-react';
+import { CornerDownLeft, FilePlus2, FileUp, Search, User, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -55,6 +55,12 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     }
     if (hasPermission('clientes', 'crear')) {
       actions.push({ id: 'new-client', label: 'Nuevo cliente', icon: UserPlus, href: '/clients?nuevo=1', section: 'Acciones rápidas', keywords: 'crear agregar' });
+    }
+    if (hasPermission('clientes', 'crear')) {
+      actions.push({ id: 'import-clients', label: 'Importar clientes desde CSV', icon: FileUp, href: '/clients?importar=1', section: 'Acciones rápidas', keywords: 'excel planilla cargar masivo' });
+    }
+    if (hasPermission('presupuestos', 'crear')) {
+      actions.push({ id: 'import-quotes', label: 'Importar presupuestos desde CSV', icon: FileUp, href: '/quotes?importar=1', section: 'Acciones rápidas', keywords: 'excel planilla cargar masivo' });
     }
     const pages: Command[] = navGroups.flatMap((g) =>
       g.items

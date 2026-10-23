@@ -3,11 +3,13 @@
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Pencil, Trash2, UserPlus, Users, Phone } from 'lucide-react';
+import { Pencil, Trash2, UserPlus, Users, Phone, FileUp } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
 import { useDebounce } from '@/hooks/useDebounce';
 import { usePermissions } from '@/hooks/usePermissions';
 import { ClientForm } from '@/components/clients/ClientForm';
+import { CsvImportModal } from '@/components/csv/CsvImportModal';
+import { useUrlTrigger } from '@/hooks/useUrlTrigger';
 import { DeleteConfirmModal } from '@/components/clients/DeleteConfirmModal';
 import { Avatar }      from '@/components/ui/Avatar';
 import { Badge }       from '@/components/ui/Badge';
@@ -41,6 +43,9 @@ function ClientsContent() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
   // /clients?nuevo=1 (desde el dashboard o Ctrl+K) abre directo el formulario
   const [formOpen, setFormOpen]         = useState(() => searchParams.get('nuevo') === '1');
+  const [importOpen, setImportOpen]     = useState(false);
+  // /clients?importar=1 (desde Ctrl+K) abre el importador
+  useUrlTrigger('importar', '/clients', () => setImportOpen(true));
   const [deleteOpen, setDeleteOpen]     = useState(false);
   const [selected, setSelected]         = useState<Client | null>(null);
   const debouncedSearch = useDebounce(search.trim());
@@ -94,10 +99,16 @@ function ClientsContent() {
         title="Clientes"
         description={data ? `${data.total} ${data.total === 1 ? 'registro' : 'registros'}${filtering ? ' con este filtro' : ''}` : 'Tus clientes y prospectos'}
         actions={canCreate && (
-          <Button onClick={openCreate}>
-            <UserPlus className="h-4 w-4" />
-            Nuevo cliente
-          </Button>
+          <>
+            <Button variant="secondary" onClick={() => setImportOpen(true)}>
+              <FileUp className="h-4 w-4" />
+              Importar CSV
+            </Button>
+            <Button onClick={openCreate}>
+              <UserPlus className="h-4 w-4" />
+              Nuevo cliente
+            </Button>
+          </>
         )}
       />
 
@@ -192,6 +203,7 @@ function ClientsContent() {
       </Card>
 
       <ClientForm open={formOpen} onClose={() => setFormOpen(false)} client={selected} />
+      <CsvImportModal entity="clients" open={importOpen} onClose={() => setImportOpen(false)} />
       <DeleteConfirmModal open={deleteOpen} onClose={() => setDeleteOpen(false)} client={selected} />
     </div>
   );

@@ -22,15 +22,20 @@ const roles = [
   { id: 'r-admin',  name: 'administrador', description: 'Acceso total' },
   { id: 'r-viewer', name: 'viewer',        description: 'Lectura en todos los módulos' },
 ];
+// user_roles ya viene filtrada por la empresa activa (vista sobre user_companies)
+const members = [
+  { user_id: 'me', role: roles[0] },
+  { user_id: 'u2', role: roles[1] },
+];
 const profiles = [
-  { id: 'me',  email: 'me@x', username: 'carlos', display_name: 'Carlos', user_roles: [{ role: roles[0] }] },
-  { id: 'u2',  email: 'u2@x', username: 'maria',  display_name: 'María',  user_roles: [{ role: roles[1] }] },
-  { id: 'otro', email: 'o@x', username: 'ajeno', display_name: 'De otra empresa', user_roles: [] },
+  { id: 'me',  email: 'me@x', username: 'carlos', display_name: 'Carlos' },
+  { id: 'u2',  email: 'u2@x', username: 'maria',  display_name: 'María' },
 ];
 
 const fetchMock = vi.fn();
 
 function respondData() {
+  sb.mock.respond('user_roles', { data: members });
   sb.mock.respond('profiles', { data: profiles });
   sb.mock.respond('roles', { data: roles });
 }
@@ -52,20 +57,37 @@ describe('AdminPage', () => {
   it('lista solo miembros de la empresa con su rol legible', async () => {
     renderWithQuery(<AdminPage />);
     expect(await screen.findByText('María')).toBeInTheDocument();
-    expect(screen.queryByText('De otra empresa')).toBeNull();
     expect(within(row('María')).getByRole('combobox')).toHaveDisplayValue('Solo lectura');
+    // Los perfiles se piden solo para los miembros
+    expect(sb.mock.lastOps('profiles')).toContainEqual(['in', ['id', ['me', 'u2']]]);
+  });
+
+  it('no embebe user_roles desde profiles (no hay FK: PostgREST devuelve 400)', async () => {
+    renderWithQuery(<AdminPage />);
+    await screen.findByText('María');
+    const [, [columns]] = sb.mock.lastOps('profiles').find(([m]) => m === 'select')!;
+    expect(String(columns)).not.toMatch(/user_roles/);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('avisa si no se pueden cargar los miembros', async () => {
+    sb.mock.reset();
+    sb.mock.respond('user_roles', { data: null, error: { message: 'boom' } });
+    renderWithQuery(<AdminPage />);
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('No se pudieron cargar los usuarios.'));
   });
 
   it('cambiar el rol hace upsert en user_roles (no borra la membresía)', async () => {
     renderWithQuery(<AdminPage />);
     await screen.findByText('María');
+    sb.mock.respond('user_roles', { data: null }); // el insert
     respondData(); // recarga después de cambiar
 
     await userEvent.selectOptions(within(row('María')).getByRole('combobox'), 'r-admin');
 
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Ahora María es Administrador'));
-    const ops = sb.mock.lastOps('user_roles');
-    expect(ops[0]).toEqual(['insert', [{ user_id: 'u2', role_id: 'r-admin' }]]);
+    const insert = sb.mock.queries.find((q) => q.table === 'user_roles' && q.ops[0]?.[0] === 'insert');
+    expect(insert?.ops[0]).toEqual(['insert', [{ user_id: 'u2', role_id: 'r-admin' }]]);
     expect(sb.mock.queries.some((q) => q.ops.some(([m]) => m === 'delete'))).toBe(false);
   });
 

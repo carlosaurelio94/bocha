@@ -26,7 +26,11 @@ interface ProfileRow {
   email:        string;
   username:     string | null;
   display_name: string | null;
-  user_roles: { role: { id: string; name: string; description: string | null } }[];
+}
+
+interface MemberRow {
+  user_id: string;
+  role:    { id: string; name: string; description: string | null } | null;
 }
 
 
@@ -191,28 +195,33 @@ export default function AdminPage() {
   const [removing,    setRemoving]    = useState<UserWithRoles | null>(null);
 
   const fetchData = useCallback(async () => {
-    const [profilesRes, rolesRes, meRes] = await Promise.all([
-      supabase.from('profiles').select(`
-        id, email, username, display_name,
-        user_roles ( role:roles ( id, name, description ) )
-      `),
+    // user_roles es una vista de user_companies filtrada por la empresa activa.
+    // No tiene FK hacia profiles, así que PostgREST no puede embeberla desde
+    // profiles (400): se piden los miembros y después sus perfiles.
+    const [membersRes, rolesRes, meRes] = await Promise.all([
+      supabase.from('user_roles').select('user_id, role:roles ( id, name, description )'),
       supabase.from('roles').select('id, name, description').order('name'),
       supabase.auth.getUser(),
     ]);
+    const members = (membersRes.data ?? []) as unknown as MemberRow[];
+    const ids = [...new Set(members.map((m) => m.user_id))];
 
-    if (profilesRes.error) toast.error('No se pudieron cargar los usuarios.');
-    const rows = (profilesRes.data ?? []) as unknown as ProfileRow[];
+    const profilesRes = ids.length
+      ? await supabase.from('profiles').select('id, email, username, display_name').in('id', ids)
+      : { data: [], error: null };
+
+    if (membersRes.error || profilesRes.error) toast.error('No se pudieron cargar los usuarios.');
+    const profiles = (profilesRes.data ?? []) as ProfileRow[];
     setUsers(
-      rows
-        // Solo miembros de esta empresa (user_roles ya viene filtrado por la empresa activa)
-        .filter((p) => (p.user_roles ?? []).length > 0)
-        .map((p) => ({
-          id:           p.id,
-          email:        p.email,
-          display_name: p.display_name,
-          username:     p.username,
-          roles: p.user_roles.map((ur) => ({ id: ur.role.id, name: ur.role.name, description: ur.role.description })),
-        }))
+      profiles.map((p) => ({
+        id:           p.id,
+        email:        p.email,
+        display_name: p.display_name,
+        username:     p.username,
+        roles: members
+          .filter((m) => m.user_id === p.id && m.role)
+          .map((m) => ({ id: m.role!.id, name: m.role!.name, description: m.role!.description })),
+      }))
     );
     setRoles((rolesRes.data ?? []) as Role[]);
     setMeId(meRes.data.user?.id ?? null);

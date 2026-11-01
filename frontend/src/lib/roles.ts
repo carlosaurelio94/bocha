@@ -4,6 +4,7 @@ export const ROLE_LABELS: Record<string, string> = {
   usuario_clientes:     'Clientes',
   usuario_presupuestos: 'Presupuestos',
   usuario_facturas:     'Compras y facturas',
+  usuario_ventas:       'Ventas',
   viewer:               'Solo lectura',
 };
 

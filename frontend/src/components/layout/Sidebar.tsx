@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/hooks/useTheme';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useLowStock } from '@/hooks/useInventory';
 import { useCompany } from '@/context/CompanyContext';
 import { supabase } from '@/lib/supabase';
 import { navGroups, isActive } from './nav';
@@ -36,6 +37,9 @@ export function Sidebar({ onNavigate, onOpenSearch, onClose }: SidebarProps) {
   const { canView, loading } = usePermissions();
   const { current: company, available, switchTo, isSuperAdmin } = useCompany();
   const [companyMenuOpen, setCompanyMenuOpen] = useState(false);
+  // Contador de "hay que comprar" junto a Productos y stock
+  const { data: lowStock } = useLowStock(!loading && canView('productos'));
+  const lowCount = lowStock?.length ?? 0;
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Cerrar el selector de empresa al hacer click afuera
@@ -180,7 +184,15 @@ export function Sidebar({ onNavigate, onOpenSearch, onClose }: SidebarProps) {
                       'h-[18px] w-[18px]',
                       active ? 'text-green-600 dark:text-green-400' : 'text-gray-400 group-hover:text-gray-600 dark:text-slate-500 dark:group-hover:text-slate-300'
                     )} />
-                    {label}
+                    <span className="flex-1">{label}</span>
+                    {href === '/products' && lowCount > 0 && (
+                      <span
+                        className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300"
+                        title={`${lowCount} ${lowCount === 1 ? 'producto' : 'productos'} en stock mínimo`}
+                      >
+                        {lowCount}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

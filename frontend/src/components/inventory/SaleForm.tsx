@@ -9,9 +9,11 @@ import { Input }  from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { useProducts, useRegisterSale, useSellers } from '@/hooks/useInventory';
+import { usePermissions } from '@/hooks/usePermissions';
 import { formatQty, inventoryErrorMessage } from '@/lib/inventory';
 import { cn, formatCurrency, toLocalISODate } from '@/lib/utils';
 import { parseAmount } from './amount';
+import { QuickProductForm } from './QuickProductForm';
 import type { SaleStatus } from '@/types/inventory';
 
 interface Line { key: number; productId: string; qty: string }
@@ -37,6 +39,8 @@ const newLine = (): Line => ({ key: nextKey++, productId: '', qty: '1' });
 
 export function SaleForm({ open, onClose, clientId, onManageSellers }: SaleFormProps) {
   const register = useRegisterSale();
+  const { hasPermission } = usePermissions();
+  const canCreateProduct = hasPermission('productos', 'crear');
   const { data: sellers }  = useSellers();
   const { data: products } = useProducts();
   const { data: clients }  = useQuery({ queryKey: ['clients', 'options'], queryFn: getClientOptions, enabled: open });
@@ -48,6 +52,7 @@ export function SaleForm({ open, onClose, clientId, onManageSellers }: SaleFormP
   const [notes, setNotes]       = useState('');
   const [lines, setLines]       = useState<Line[]>(() => [newLine()]);
   const [error, setError]       = useState('');
+  const [creatingProduct, setCreatingProduct] = useState(false);
 
   const activeSellers = (sellers ?? []).filter((s) => s.active);
   const byId = useMemo(() => new Map((products ?? []).map((p) => [p.id, p])), [products]);
@@ -68,6 +73,17 @@ export function SaleForm({ open, onClose, clientId, onManageSellers }: SaleFormP
 
   const updateLine = (key: number, changes: Partial<Line>) =>
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...changes } : l)));
+
+  /** El producto recién creado va en la primera línea vacía (o en una nueva). */
+  const addCreatedProduct = (productId: string) => {
+    setLines((ls) => {
+      const empty = ls.find((l) => !l.productId);
+      return empty
+        ? ls.map((l) => (l.key === empty.key ? { ...l, productId } : l))
+        : [...ls, { ...newLine(), productId }];
+    });
+    setCreatingProduct(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,11 +149,14 @@ export function SaleForm({ open, onClose, clientId, onManageSellers }: SaleFormP
 
         <div>
           <p className="mb-2 text-sm font-medium text-gray-700 dark:text-slate-300">Productos</p>
-          {products && products.length === 0 ? (
+          {products && products.length === 0 && !creatingProduct ? (
             <p className="rounded-lg bg-gray-50 px-3 py-4 text-center text-sm text-gray-500 dark:bg-slate-800 dark:text-slate-400">
-              Primero cargá productos en Productos y stock.
+              Todavía no hay productos.{' '}
+              {canCreateProduct
+                ? <button type="button" onClick={() => setCreatingProduct(true)} className="font-semibold text-green-700 underline dark:text-green-400">Crear el primero</button>
+                : 'Pedile a un administrador que los cargue.'}
             </p>
-          ) : (
+          ) : products && products.length === 0 ? null : (
             <ul className="flex flex-col gap-2">
               {rows.map((r, i) => (
                 <li key={r.key} className="flex flex-col gap-1">
@@ -173,9 +192,24 @@ export function SaleForm({ open, onClose, clientId, onManageSellers }: SaleFormP
               ))}
             </ul>
           )}
-          <Button type="button" variant="ghost" size="sm" className="mt-2" disabled={lines.length >= 100} onClick={() => setLines((ls) => [...ls, newLine()])}>
-            <Plus className="h-4 w-4" />Agregar otro producto
-          </Button>
+          {creatingProduct ? (
+            <div className="mt-3">
+              <QuickProductForm onCreated={(p) => addCreatedProduct(p.id)} onCancel={() => setCreatingProduct(false)} />
+            </div>
+          ) : (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {(products?.length ?? 0) > 0 && (
+                <Button type="button" variant="ghost" size="sm" disabled={lines.length >= 100} onClick={() => setLines((ls) => [...ls, newLine()])}>
+                  <Plus className="h-4 w-4" />Agregar otro producto
+                </Button>
+              )}
+              {canCreateProduct && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setCreatingProduct(true)}>
+                  <Plus className="h-4 w-4" />Crear producto nuevo
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         <Input id="sale-notes" label="Nota (opcional)" maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} />

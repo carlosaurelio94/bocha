@@ -111,6 +111,51 @@ describe('SaleForm', () => {
   });
 });
 
+describe('SaleForm: crear producto sin salir de la venta', () => {
+  it('sin productos ofrece crear el primero y lo deja seleccionado', async () => {
+    perms.value = permissionsFor('ventas:ver', 'ventas:crear', 'productos:crear');
+    sb.mock.respond('sellers',  { data: sellers });
+    sb.mock.respond('products', { data: [] });
+    sb.mock.respond('clients',  { data: [] });
+    renderWithQuery(<SaleForm open onClose={vi.fn()} />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Crear el primero' }));
+    // el insert y la recarga de la lista
+    const created = product({ id: 'p9', name: 'Empanada mixta', price: 2, stock_current: 12 });
+    sb.mock.respond('products', { data: created });
+    sb.mock.respond('products', { data: [created] });
+
+    await userEvent.type(screen.getByLabelText(/^Nombre/), 'Empanada mixta');
+    await userEvent.type(screen.getByLabelText(/^Precio/), '2');
+    await userEvent.type(screen.getByLabelText('Stock actual'), '12');
+    await userEvent.click(screen.getByRole('button', { name: 'Crear y agregar a la venta' }));
+
+    await waitFor(() => expect(screen.getByLabelText('Producto 1')).toHaveValue('p9'));
+    expect(sb.mock.queries.find((q) => q.table === 'products' && q.ops[0]?.[0] === 'insert')?.ops[0]).toEqual(['insert', [{
+      name: 'Empanada mixta', sku: null, unit: 'unidad', price: 2, stock_current: 12, stock_min: 0,
+    }]]);
+    expect(toast.success).toHaveBeenCalledWith('Empanada mixta creado');
+  });
+
+  it('con productos también se puede crear uno nuevo; valida el nombre', async () => {
+    perms.value = permissionsFor('ventas:ver', 'ventas:crear', 'productos:crear');
+    renderSaleForm();
+    await screen.findByRole('option', { name: 'Pedro' });
+    await userEvent.click(screen.getByRole('button', { name: /Crear producto nuevo/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Crear y agregar a la venta' }));
+    expect(screen.getByText('Poné un nombre.')).toBeInTheDocument();
+    expect(sb.mock.queries.some((q) => q.ops[0]?.[0] === 'insert')).toBe(false);
+  });
+
+  it('sin permiso de productos no muestra la opción', async () => {
+    sb.mock.respond('sellers',  { data: sellers });
+    sb.mock.respond('products', { data: [] });
+    renderWithQuery(<SaleForm open onClose={vi.fn()} />);
+    expect(await screen.findByText(/Pedile a un administrador/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Crear/ })).toBeNull();
+  });
+});
+
 describe('ProductForm', () => {
   it('crea con stock inicial y acepta precios con coma', async () => {
     sb.mock.respond('products', { data: product({}) });

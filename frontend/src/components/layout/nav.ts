@@ -7,6 +7,9 @@ import {
   Building2,
   Receipt,
   CreditCard,
+  BarChart3,
+  ShoppingCart,
+  Package,
 } from 'lucide-react';
 import type { Module } from '@/types/permissions';
 
@@ -28,14 +31,22 @@ export const navGroups: NavGroup[] = [
   {
     label: null,
     items: [
-      { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard, module: 'dashboard', keywords: 'dashboard resumen métricas' },
+      { href: '/dashboard', label: 'Inicio',   icon: LayoutDashboard, module: 'dashboard', keywords: 'dashboard resumen' },
+      { href: '/metrics',   label: 'Métricas', icon: BarChart3,       module: 'metricas',  keywords: 'estadísticas vendedores ranking reportes' },
     ],
   },
   {
     label: 'Ventas',
     items: [
-      { href: '/clients', label: 'Clientes',     icon: Users,    module: 'clientes',     keywords: 'prospectos contactos' },
-      { href: '/quotes',  label: 'Presupuestos', icon: FileText, module: 'presupuestos', keywords: 'cotizaciones ventas' },
+      { href: '/clients', label: 'Clientes',     icon: Users,        module: 'clientes',     keywords: 'prospectos contactos' },
+      { href: '/sales',   label: 'Ventas',       icon: ShoppingCart, module: 'ventas',       keywords: 'consumos cuenta vendedores cobros' },
+      { href: '/quotes',  label: 'Presupuestos', icon: FileText,     module: 'presupuestos', keywords: 'cotizaciones' },
+    ],
+  },
+  {
+    label: 'Inventario',
+    items: [
+      { href: '/products', label: 'Productos y stock', icon: Package, module: 'productos', keywords: 'inventario stock mínimo comprar' },
     ],
   },
   {

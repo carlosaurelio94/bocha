@@ -5,7 +5,10 @@ export type Module =
   | 'configuracion'
   | 'admin'
   | 'proveedores'
-  | 'facturas';
+  | 'facturas'
+  | 'productos'
+  | 'ventas'
+  | 'metricas';
 
 export type Action = 'ver' | 'crear' | 'editar' | 'eliminar' | 'exportar' | 'aprobar' | 'pagar';
 

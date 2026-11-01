@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import {
   Users, FileText, DollarSign, Clock, Download, FilePlus2, UserPlus,
-  Receipt, ArrowRight, CheckCircle2, Circle, ChevronRight, Search,
+  Receipt, ArrowRight, CheckCircle2, Circle, ChevronRight, Search, ShoppingCart,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useCompany } from '@/context/CompanyContext';
@@ -16,6 +16,7 @@ import { Card }   from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton, ListSkeleton } from '@/components/ui/Skeleton';
+import { LowStockAlert } from '@/components/inventory/LowStockAlert';
 import { cn, formatCurrency, formatDate, monthRange, toCsv, toLocalISODate } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { Module, Action } from '@/types/permissions';
@@ -125,6 +126,7 @@ interface QuickAction {
 
 const QUICK_ACTIONS: QuickAction[] = [
   { href: '/quotes/new',          label: 'Nuevo presupuesto', desc: 'Armalo en un minuto',     icon: FilePlus2, tone: 'bg-green-600 text-white',                                    module: 'presupuestos', action: 'crear' },
+  { href: '/sales?nueva=1',       label: 'Registrar venta',   desc: 'Lo que consumió un cliente', icon: ShoppingCart, tone: 'bg-teal-50 text-teal-600 dark:bg-teal-500/10 dark:text-teal-400', module: 'ventas', action: 'crear' },
   { href: '/clients?nuevo=1',     label: 'Nuevo cliente',     desc: 'Cargá sus datos',         icon: UserPlus,  tone: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',       module: 'clientes',     action: 'crear' },
   { href: '/invoices?nuevo=1',    label: 'Cargar factura',    desc: 'De un proveedor',         icon: Receipt,   tone: 'bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400', module: 'facturas',     action: 'crear' },
   { href: '/quotes?estado=sent',  label: 'Hacer seguimiento', desc: 'Presupuestos sin respuesta', icon: Clock, tone: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400',  module: 'presupuestos', action: 'ver'   },
@@ -136,7 +138,7 @@ function QuickActions() {
   if (actions.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
       {actions.map(({ href, label, desc, icon: Icon, tone }) => (
         <Link
           key={href}
@@ -268,6 +270,8 @@ export default function DashboardPage() {
           </Button>
         )}
       />
+
+      <LowStockAlert />
 
       <QuickActions />
 

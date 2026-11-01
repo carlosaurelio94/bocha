@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { CornerDownLeft, FilePlus2, FileUp, Search, User, UserPlus } from 'lucide-react';
+import { CornerDownLeft, FilePlus2, FileUp, Search, User, UserPlus, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -50,6 +50,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   const staticCommands = useMemo<Command[]>(() => {
     const actions: Command[] = [];
+    if (hasPermission('ventas', 'crear')) {
+      actions.push({ id: 'new-sale', label: 'Registrar venta', icon: ShoppingCart, href: '/sales?nueva=1', section: 'Acciones rápidas', keywords: 'consumo vender cobrar' });
+    }
     if (hasPermission('presupuestos', 'crear')) {
       actions.push({ id: 'new-quote', label: 'Nuevo presupuesto', icon: FilePlus2, href: '/quotes/new', section: 'Acciones rápidas', keywords: 'crear cotizacion' });
     }

@@ -38,6 +38,9 @@ retrofitting multi-tenancy onto live production data would have been far worse.
 - **Clients** — full CRUD, statuses (prospect / client), search and filters
 - **Quotes** — line items, bulk import from pasted text, inline status changes, PDF export
 - **Suppliers + Invoices** — complete purchasing cycle
+- **Products & stock** — current and minimum stock per product; when a product reaches its minimum the app warns that it's time to buy more (sidebar badge, dashboard banner, toast after a sale). Every stock change is logged.
+- **Sales** — record what a client consumed, pick the seller, keep it "on account" until paid; stock is deducted atomically and cancelling a sale returns it. The client page shows their purchases and balance.
+- **Metrics** — sales per seller (count, units, revenue, average ticket), best-selling products and daily revenue for any date range
 - **Settings** — reusable informative-text presets for quotes
 - **Dashboard** — monthly metrics, recent activity, CSV export
 - **Dark mode** — toggle persisted in localStorage, no flash on reload
@@ -110,12 +113,13 @@ mvn test
 
 ### Pending database migrations
 
-SQL files in `supabase/migrations/` (all idempotent). Already applied to production as of 2026-10-16.
+SQL files in `supabase/migrations/` (all idempotent), all applied to production.
 `schema.sql` already includes them for fresh installs.
 
 - `20261016_bootstrap_company_free_plan.sql` — self-service signup always starts on the free plan (security fix).
 - `20261017_plan_limits_and_unique_quote_numbers.sql` — enforces plan limits in the database and makes quote numbers unique per company.
 - `20261018_revoke_anon_internal_rpcs.sql` — `bootstrap_company` and `company_limit` are no longer callable without a session.
+- `20261101_products_sales_metrics.sql` — products, stock movements, sellers, sales and metrics (`register_sale`, `cancel_sale`, `adjust_stock`, `sales_metrics`), new permissions and the `usuario_ventas` role.
 
 Database tests (schema + migrations against a throwaway Postgres): `PGHOST=... PGUSER=postgres supabase/tests/run.sh`.
 

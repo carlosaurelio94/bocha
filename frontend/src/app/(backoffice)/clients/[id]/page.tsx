@@ -8,6 +8,7 @@ import { getClientById } from '@/lib/clients';
 import { getQuotes } from '@/lib/quotes';
 import { usePermissions } from '@/hooks/usePermissions';
 import { ClientForm } from '@/components/clients/ClientForm';
+import { ClientAccount } from '@/components/inventory/ClientAccount';
 import { Avatar }     from '@/components/ui/Avatar';
 import { Badge }      from '@/components/ui/Badge';
 import { Button, LinkButton } from '@/components/ui/Button';
@@ -117,6 +118,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           ))}
         </dl>
       </Card>
+
+      {/* Consumos y lo que debe */}
+      <ClientAccount clientId={client.id} clientName={client.name} />
 
       {/* Presupuestos del cliente */}
       <Card

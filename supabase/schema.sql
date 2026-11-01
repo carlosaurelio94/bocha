@@ -1051,8 +1051,8 @@ BEGIN
     RAISE EXCEPTION 'sin_permiso:%:%', p_module, p_action USING ERRCODE = '42501';
   END IF;
 END $$;
-REVOKE EXECUTE ON FUNCTION public.require_permission(TEXT, TEXT) FROM PUBLIC, anon;
-GRANT  EXECUTE ON FUNCTION public.require_permission(TEXT, TEXT) TO authenticated;
+-- Solo se usa dentro de las RPC SECURITY DEFINER (corren como owner)
+REVOKE EXECUTE ON FUNCTION public.require_permission(TEXT, TEXT) FROM PUBLIC, anon, authenticated;
 
 -- ────────────────────────────────────────────────────────────
 -- register_sale: crea la venta, descuenta stock y devuelve los productos

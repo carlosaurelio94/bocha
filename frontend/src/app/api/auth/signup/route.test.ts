@@ -46,6 +46,28 @@ beforeEach(() => {
 });
 
 describe('POST /api/auth/signup', () => {
+  it('si Supabase no responde, devuelve 503 con un mensaje entendible (no "fetch failed")', async () => {
+    sb.rpc.mockResolvedValue({ data: null, error: { message: 'TypeError: fetch failed' } });
+    const res = await post(valid);
+    expect(res.status).toBe(503);
+    expect((await res.json()).error).toMatch(/no está disponible/);
+    expect(sb.createUser).not.toHaveBeenCalled();
+  });
+
+  it('si falla la verificación de disponibilidad, no sigue con el alta', async () => {
+    sb.rpc.mockResolvedValue({ data: null, error: { message: 'permission denied' } });
+    const res = await post(valid);
+    expect(res.status).toBe(500);
+    expect(sb.createUser).not.toHaveBeenCalled();
+  });
+
+  it('error de red al crear el usuario → 503', async () => {
+    sb.createUser.mockResolvedValue({ data: { user: null }, error: { name: 'AuthRetryableFetchError', message: 'fetch failed' } });
+    const res = await post(valid);
+    expect(res.status).toBe(503);
+    expect((await res.json()).error).not.toMatch(/fetch failed/);
+  });
+
   it('crea la empresa y devuelve el email interno', async () => {
     const res = await post(valid);
     expect(res.status).toBe(200);

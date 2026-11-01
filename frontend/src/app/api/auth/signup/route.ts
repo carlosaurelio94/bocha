@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { validateSignup } from '@/lib/signupValidation';
+import { SERVICE_UNAVAILABLE, isUnreachable } from '@/lib/serverErrors';
 
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -43,12 +44,21 @@ export async function POST(request: Request) {
   }
 
   const admin = adminClient();
+  const unavailable = () => NextResponse.json({ error: SERVICE_UNAVAILABLE }, { status: 503 });
 
-  // Verificar disponibilidad
-  const [{ data: slugFree }, { data: userFree }] = await Promise.all([
+  // Verificar disponibilidad. Si la consulta falla no se sigue: antes un error
+  // dejaba data en undefined y el alta continuaba sin verificar nada.
+  const [slugRes, userRes] = await Promise.all([
     admin.rpc('is_company_slug_available', { p_slug: companySlug }),
     admin.rpc('is_username_available',     { p_username: username }),
   ]);
+  const checkErr = slugRes.error ?? userRes.error;
+  if (checkErr) {
+    if (isUnreachable(checkErr)) return unavailable();
+    return NextResponse.json({ error: 'No se pudo verificar la disponibilidad. Probá de nuevo.' }, { status: 500 });
+  }
+  const slugFree = slugRes.data;
+  const userFree = userRes.data;
 
   if (slugFree === false) return NextResponse.json({ error: 'Esa dirección ya está en uso, probá con otra', fields: { companySlug: 'Ya está en uso.' } }, { status: 409 });
   if (userFree === false) return NextResponse.json({ error: 'Ese usuario ya está en uso', fields: { username: 'Ya está en uso, elegí otro.' } }, { status: 409 });
@@ -62,6 +72,7 @@ export async function POST(request: Request) {
     email_confirm: true,
   });
   if (createErr || !created.user) {
+    if (isUnreachable(createErr)) return unavailable();
     return NextResponse.json({ error: createErr?.message ?? 'No se pudo crear el usuario' }, { status: 400 });
   }
   const userId = created.user.id;
@@ -95,6 +106,7 @@ export async function POST(request: Request) {
 
   if (bootErr || !companyId) {
     await admin.auth.admin.deleteUser(userId);
+    if (isUnreachable(bootErr)) return unavailable();
     return NextResponse.json({ error: bootErr?.message ?? 'No se pudo crear la empresa' }, { status: 500 });
   }
 

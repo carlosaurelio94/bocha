@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { SERVICE_UNAVAILABLE, isUnreachable } from '@/lib/serverErrors';
 import { parsePlanLimit } from '@/lib/errors';
 
 function adminClient() {
@@ -123,6 +124,7 @@ export async function POST(request: Request) {
   });
 
   if (createError || !newUser.user) {
+    if (isUnreachable(createError)) return NextResponse.json({ error: SERVICE_UNAVAILABLE }, { status: 503 });
     return NextResponse.json({ error: createError?.message ?? 'Error al crear usuario' }, { status: 400 });
   }
 

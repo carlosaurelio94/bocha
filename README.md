@@ -184,6 +184,12 @@ VALUES (
 );
 ```
 
+### Supabase keepalive
+
+The Free plan pauses the project after 7 days without activity (the app then fails to load).
+`.github/workflows/supabase-keepalive.yml` calls a public read-only RPC every 3 days to keep it awake.
+It uses the `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` secrets and can also be run by hand from the Actions tab.
+
 ## CI/CD — required GitHub secrets
 
 Go to **GitHub → repo → Settings → Secrets and variables → Actions**
